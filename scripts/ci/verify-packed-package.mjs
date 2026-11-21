@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import {
   chmod,
   copyFile,
@@ -9,6 +10,7 @@ import {
   readFile,
   readdir,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -132,22 +134,123 @@ async function verifyDashboard(project, temporaryDirectory) {
         signal: AbortSignal.timeout(5_000),
         headers: { Authorization: `Bearer ${token}`, ...options.headers },
       });
-    for (const [path, contentType] of [
-      ['/', 'text/html'],
-      ['/dashboard.js', 'text/javascript'],
-      ['/dashboard.css', 'text/css'],
-    ]) {
+    async function getAsset(path, contentType) {
       const response = await request(path);
       assert.equal(response.status, 200);
       assert.ok(response.headers.get('content-type').startsWith(contentType));
-      if (path === '/')
-        assert.match(await response.text(), /Add documentation/u);
-      else await response.arrayBuffer();
+      return response.text();
     }
+
+    const catalogPage = await getAsset('/', 'text/html');
+    assert.match(catalogPage, /href="\/" aria-current="page"\s*>\s*Catalog/u);
+    assert.match(catalogPage, /href="\/about"\s*>\s*About\s*<\/a>/u);
+    assert.match(catalogPage, /href="\/usage"\s*>\s*Usage\s*<\/a>/u);
+    assert.match(
+      catalogPage,
+      /class="button prominent" href="\/add"\s*>\s*Add documentation/u,
+    );
+    assert.match(catalogPage, /src="\/navigation.js"/u);
+    assert.doesNotMatch(catalogPage, /<form\b/u);
+    const addPage = await getAsset('/add', 'text/html');
+    assert.match(addPage, /href="\/">\s*Catalog/u);
+    assert.match(addPage, /href="\/about"\s*>\s*About\s*<\/a>/u);
+    assert.match(addPage, /src="\/navigation.js"/u);
+    assert.match(addPage, /<form id="curated-form"/u);
+    assert.match(addPage, /<form id="local-form"/u);
+
+    const aboutPage = await getAsset('/about', 'text/html');
+    assert.match(aboutPage, /href="\/about" aria-current="page"\s*>\s*About/u);
+    assert.match(
+      aboutPage,
+      /href="https:\/\/github\.com\/rafaself\/nekosearch"/u,
+    );
+    assert.match(
+      aboutPage,
+      /href="https:\/\/github\.com\/rafaself\/nekosearch\/issues\/new\/choose"/u,
+    );
+    assert.match(aboutPage, /href="https:\/\/nekosearch\.pages\.dev\/"/u);
+    const usagePage = await getAsset('/usage', 'text/html');
+    assert.match(usagePage, /<title>Usage · NekoSearch<\/title>/u);
+    assert.match(usagePage, /id="usage-settings"/u);
+    assert.match(usagePage, /id="usage-calls"/u);
+    const detailsPage = await getAsset('/details', 'text/html');
+    assert.match(detailsPage, /id="detail-document-usage-section"/u);
+    assert.match(detailsPage, /Usage by document/u);
+
+    for (const page of [catalogPage, addPage, aboutPage, usagePage]) {
+      assert.match(page, /rel="icon"[^>]*href="\/nekosearch\.png"/u);
+      assert.match(page, /<img\s+src="\/nekosearch\.png"/u);
+    }
+    const logo = await request('/nekosearch.png');
+    assert.equal(logo.status, 200);
+    assert.equal(logo.headers.get('content-type'), 'image/png');
+    const png = Buffer.from(await logo.arrayBuffer());
+    assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+
+    for (const path of [
+      '/catalog.js',
+      '/add-documentation.js',
+      '/dashboard.js',
+      '/dashboard-api.js',
+      '/navigation.js',
+      '/snapshot-details.js',
+      '/usage.js',
+    ])
+      await getAsset(path, 'text/javascript');
+    await getAsset('/dashboard.css', 'text/css');
     assert.equal(
       (await request('/api/catalog', { headers: { Authorization: '' } }))
         .status,
       401,
+    );
+    assert.equal(
+      (
+        await request('/api/usage/settings', {
+          headers: { Authorization: '' },
+        })
+      ).status,
+      401,
+    );
+    const usageDatabasePath = join(dataHome, 'nekosearch', 'usage.sqlite');
+    const defaultUsageSettings = await request('/api/usage/settings');
+    assert.equal(defaultUsageSettings.status, 200);
+    assert.deepEqual(await defaultUsageSettings.json(), {
+      enabled: false,
+      queryMode: 'counts',
+      retentionDays: 30,
+    });
+    assert.equal(existsSync(usageDatabasePath), false);
+    const emptyUsage = await request('/api/usage?window=all');
+    assert.equal(emptyUsage.status, 200);
+    assert.equal((await emptyUsage.json()).totals.calls, 0);
+    assert.equal((await request('/api/usage?window=bad')).status, 400);
+    const usageSettings = {
+      enabled: true,
+      queryMode: 'counts',
+      retentionDays: 30,
+    };
+    const updateUsage = (requestOrigin = origin) =>
+      request('/api/usage/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: requestOrigin,
+        },
+        body: JSON.stringify(usageSettings),
+      });
+    assert.equal((await updateUsage('https://example.invalid')).status, 403);
+    const savedUsageSettings = await updateUsage();
+    assert.equal(savedUsageSettings.status, 200);
+    assert.deepEqual(await savedUsageSettings.json(), usageSettings);
+    assert.equal((await stat(usageDatabasePath)).mode & 0o777, 0o600);
+    assert.equal(
+      (
+        await request('/api/usage', {
+          method: 'DELETE',
+          headers: { Origin: 'https://example.invalid' },
+        })
+      ).status,
+      403,
     );
     const jobRequest = (body, requestOrigin = origin) =>
       request('/api/jobs', {

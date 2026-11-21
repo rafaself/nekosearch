@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Snapshot details · NekoSearch</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="/nekosearch.png" />
+    <link rel="stylesheet" href="/dashboard.css" />
+    <script type="module" src="/navigation.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="site-nav" aria-label="Dashboard">
+        <span class="brand"
+          ><img
+            src="/nekosearch.png"
+            width="24"
+            height="24"
+            alt=""
+          />NekoSearch</span
+        >
+        <a class="button nav-link" href="/" aria-current="page">Catalog</a>
+        <a class="button nav-link" href="/usage">Usage</a>
+        <a class="button nav-link" href="/about">About</a>
+      </nav>
+    </header>
+    <main class="layout details-page">
+      <a class="details-back" href="/">← Back to catalog</a>
+      <h1 id="details-title" tabindex="-1">Snapshot details</h1>
+      <p id="details-loading" class="muted">Loading snapshot details…</p>
+      <p id="details-missing" class="muted" hidden>
+        This snapshot is no longer in the catalog.
+      </p>
+      <section
+        id="snapshot-section"
+        class="details-section"
+        aria-labelledby="snapshot-heading"
+        hidden
+      >
+        <h2 id="snapshot-heading">Snapshot</h2>
+        <dl class="details-list">
+          <div>
+            <dt>Source</dt>
+            <dd id="detail-source"></dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd id="detail-version"></dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd id="detail-status"></dd>
+          </div>
+          <div>
+            <dt>Tracking</dt>
+            <dd id="detail-tracking"></dd>
+          </div>
+          <div id="detail-ref-row" hidden>
+            <dt>Source ref</dt>
+            <dd id="detail-ref"></dd>
+          </div>
+          <div id="detail-documentation-row" hidden>
+            <dt>Documentation</dt>
+            <dd>
+              <a
+                id="detail-documentation-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              ></a>
+            </dd>
+          </div>
+          <div id="detail-source-reference-row" hidden>
+            <dt>Source reference</dt>
+            <dd>
+              <a
+                id="detail-source-reference-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              ></a>
+            </dd>
+          </div>
+          <div id="detail-installed-row" hidden>
+            <dt>Snapshot installed</dt>
+            <dd id="detail-installed"></dd>
+          </div>
+          <div>
+            <dt>Revision</dt>
+            <dd><code id="detail-revision"></code></dd>
+          </div>
+        </dl>
+      </section>
+      <section
+        id="statistics-section"
+        class="details-section"
+        aria-labelledby="statistics-heading"
+        hidden
+      >
+        <h2 id="statistics-heading">Index statistics</h2>
+        <dl class="details-list">
+          <div>
+            <dt>Documents</dt>
+            <dd id="detail-document-count"></dd>
+          </div>
+          <div>
+            <dt>Chunks</dt>
+            <dd id="detail-chunk-count"></dd>
+          </div>
+          <div>
+            <dt>Average chunks per document</dt>
+            <dd id="detail-average-chunks"></dd>
+          </div>
+          <div>
+            <dt>Chunk size</dt>
+            <dd id="detail-chunk-size"></dd>
+          </div>
+          <div>
+            <dt>Embeddings</dt>
+            <dd id="detail-embeddings"></dd>
+          </div>
+        </dl>
+      </section>
+      <section
+        id="storage-section"
+        class="details-section"
+        aria-labelledby="storage-heading"
+        hidden
+      >
+        <h2 id="storage-heading">Snapshot storage</h2>
+        <dl class="details-list">
+          <div>
+            <dt>Search index</dt>
+            <dd id="detail-index-size"></dd>
+          </div>
+          <div>
+            <dt>Documentation corpus</dt>
+            <dd id="detail-corpus-size"></dd>
+          </div>
+          <div>
+            <dt>Total snapshot</dt>
+            <dd id="detail-snapshot-size"></dd>
+          </div>
+        </dl>
+      </section>
+      <section
+        id="usage-section"
+        class="details-section"
+        aria-labelledby="usage-heading"
+        hidden
+      >
+        <h2 id="usage-heading">MCP usage</h2>
+        <p id="detail-usage-loading" class="muted">Loading usage summary…</p>
+        <dl id="detail-usage-list" class="details-list" hidden>
+          <div>
+            <dt>Tool calls</dt>
+            <dd id="detail-usage-calls"></dd>
+          </div>
+          <div>
+            <dt>Search calls</dt>
+            <dd id="detail-usage-searches"></dd>
+          </div>
+          <div>
+            <dt>Fetch calls</dt>
+            <dd id="detail-usage-fetches"></dd>
+          </div>
+          <div>
+            <dt>Sections and references returned</dt>
+            <dd id="detail-usage-fetch-content"></dd>
+          </div>
+          <div>
+            <dt>Truncated fetches</dt>
+            <dd id="detail-usage-truncated"></dd>
+          </div>
+          <div>
+            <dt>Failed calls</dt>
+            <dd id="detail-usage-failures"></dd>
+          </div>
+          <div>
+            <dt>Average latency</dt>
+            <dd id="detail-usage-latency"></dd>
+          </div>
+          <div>
+            <dt>Average response</dt>
+            <dd id="detail-usage-response"></dd>
+          </div>
+          <div>
+            <dt>Response data</dt>
+            <dd id="detail-usage-total-response"></dd>
+          </div>
+        </dl>
+        <section
+          id="detail-document-usage-section"
+          class="document-usage-section"
+          aria-labelledby="detail-document-usage-heading"
+          hidden
+        >
+          <h3 id="detail-document-usage-heading">Usage by document</h3>
+          <p class="muted document-usage-note">
+            Top 20 documents with recorded searches or fetches, ranked by
+            activity.
+          </p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Document ID</th>
+                  <th>Search calls</th>
+                  <th>Search hits</th>
+                  <th>Fetches (found / total)</th>
+                </tr>
+              </thead>
+              <tbody id="detail-document-usage-rows"></tbody>
+            </table>
+          </div>
+        </section>
+        <p id="detail-document-usage-empty" class="muted" hidden>
+          No document-level usage is retained for this snapshot.
+        </p>
+        <p id="detail-usage-empty" class="muted" hidden>
+          No retained tool calls are attributed to this snapshot.
+        </p>
+      </section>
+      <div
+        id="detail-actions"
+        class="snapshot-actions details-actions"
+        hidden
+      ></div>
+    </main>
+  </body>
+</html>

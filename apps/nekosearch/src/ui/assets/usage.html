@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Usage · NekoSearch</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="/nekosearch.png" />
+    <link rel="stylesheet" href="/dashboard.css" />
+    <script type="module" src="/navigation.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="site-nav" aria-label="Dashboard">
+        <span class="brand"
+          ><img
+            src="/nekosearch.png"
+            width="24"
+            height="24"
+            alt=""
+          />NekoSearch</span
+        >
+        <a class="button nav-link" href="/">Catalog</a>
+        <a class="button nav-link" href="/usage" aria-current="page">Usage</a>
+        <a class="button nav-link" href="/about">About</a>
+      </nav>
+    </header>
+    <main class="layout usage-page">
+      <div class="page-header">
+        <div>
+          <h1 tabindex="-1">Usage</h1>
+          <p class="muted">
+            Local request statistics for NekoSearch MCP tools.
+          </p>
+        </div>
+        <button id="usage-refresh" class="button secondary" type="button">
+          Refresh
+        </button>
+      </div>
+      <p id="usage-notice" class="notice" role="status" hidden></p>
+
+      <section class="usage-section" aria-labelledby="usage-settings-title">
+        <h2 id="usage-settings-title">Collection settings</h2>
+        <p class="muted usage-intro">
+          Statistics stay in the local NekoSearch data directory. They are not
+          sent to NekoSearch or any third party. Collection starts only after
+          you enable it here.
+        </p>
+        <form id="usage-settings" class="usage-settings">
+          <label class="toggle-label" for="usage-enabled">
+            <input id="usage-enabled" name="enabled" type="checkbox" />
+            <span>Record MCP tool calls</span>
+          </label>
+          <div class="usage-setting-field">
+            <label for="usage-query-mode">Search query detail</label>
+            <select id="usage-query-mode" name="queryMode">
+              <option value="counts">Length only (default)</option>
+              <option value="fingerprint">
+                Keyed fingerprint for repeat counts
+              </option>
+              <option value="raw">Store the exact query text</option>
+            </select>
+            <p class="muted">
+              Fingerprints group repeat queries without saving their exact text.
+              Raw mode stores exact queries. The local SQLite database is not
+              encrypted.
+            </p>
+          </div>
+          <div class="usage-setting-field">
+            <label for="usage-retention">Keep statistics for</label>
+            <select id="usage-retention" name="retentionDays">
+              <option value="7">7 days</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="never">No automatic deletion</option>
+            </select>
+          </div>
+          <div class="usage-settings-actions">
+            <button class="button secondary" type="submit">
+              Save settings
+            </button>
+            <button id="usage-clear" class="button secondary" type="button">
+              Clear usage data
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="usage-section" aria-labelledby="usage-report-title">
+        <div class="usage-section-heading">
+          <div>
+            <h2 id="usage-report-title">Request report</h2>
+            <p class="muted usage-intro">
+              Response size is the UTF-8 size of the serialized MCP tool result.
+              Documentation text is never saved in the usage database.
+            </p>
+          </div>
+          <form id="usage-filters" class="usage-filters">
+            <label>
+              <span>Period</span>
+              <select name="window">
+                <option value="24h">Last 24 hours</option>
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="all">All retained data</option>
+              </select>
+            </label>
+            <label>
+              <span>Tool</span>
+              <select name="tool">
+                <option value="">All tools</option>
+                <option value="list_docs">list_docs</option>
+                <option value="search_docs">search_docs</option>
+                <option value="fetch_docs">fetch_docs</option>
+              </select>
+            </label>
+            <label>
+              <span>Documentation</span>
+              <select id="usage-selector" name="selector">
+                <option value="">All sources</option>
+              </select>
+            </label>
+          </form>
+        </div>
+
+        <dl id="usage-totals" class="usage-metrics" aria-live="polite"></dl>
+
+        <section class="usage-fetches" aria-labelledby="usage-fetches-title">
+          <h3 id="usage-fetches-title">Fetch behavior</h3>
+          <dl id="usage-fetch-metrics" class="usage-metrics"></dl>
+        </section>
+
+        <div class="usage-breakdowns">
+          <section aria-labelledby="usage-tools-title">
+            <h3 id="usage-tools-title">Calls by tool</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tool</th>
+                    <th>Calls</th>
+                    <th>Failures</th>
+                    <th>Avg. time</th>
+                    <th>Avg. response</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-tools"></tbody>
+              </table>
+            </div>
+          </section>
+          <section aria-labelledby="usage-sources-title">
+            <h3 id="usage-sources-title">Calls by source</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Calls</th>
+                    <th>Results</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-sources"></tbody>
+              </table>
+            </div>
+          </section>
+          <section aria-labelledby="usage-documents-title">
+            <h3 id="usage-documents-title">Most requested documents</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Document ID</th>
+                    <th>Search hits</th>
+                    <th>Fetches</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-documents"></tbody>
+              </table>
+            </div>
+          </section>
+          <section aria-labelledby="usage-sections-title">
+            <h3 id="usage-sections-title">Most requested sections</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Document ID</th>
+                    <th>Section ID</th>
+                    <th>Search hits</th>
+                    <th>Fetches</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-sections"></tbody>
+              </table>
+            </div>
+          </section>
+          <section aria-labelledby="usage-query-title">
+            <h3 id="usage-query-title">Search queries</h3>
+            <p id="usage-query-note" class="muted"></p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Query or length</th>
+                    <th>Calls</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-queries"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section class="usage-recent" aria-labelledby="usage-recent-title">
+          <h3 id="usage-recent-title">Recent calls</h3>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Call ID</th>
+                  <th>Time</th>
+                  <th>Tool</th>
+                  <th>Source</th>
+                  <th>Query / target</th>
+                  <th>Results</th>
+                  <th>Fetch details</th>
+                  <th>Response</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="usage-calls"></tbody>
+            </table>
+          </div>
+          <div class="usage-pagination">
+            <span id="usage-page-status" class="muted"></span>
+            <div>
+              <button
+                id="usage-previous"
+                class="button secondary"
+                type="button"
+              >
+                Previous
+              </button>
+              <button id="usage-next" class="button secondary" type="button">
+                Next
+              </button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

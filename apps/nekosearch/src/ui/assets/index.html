@@ -3,86 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Documentation · NekoSearch</title>
+    <meta name="color-scheme" content="dark" />
+    <title>Catalog · NekoSearch</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="/nekosearch.png" />
     <link rel="stylesheet" href="/dashboard.css" />
-    <script type="module" src="/dashboard.js"></script>
+    <script type="module" src="/navigation.js"></script>
   </head>
   <body>
     <header class="site-header">
-      <div class="layout brand">NekoSearch</div>
+      <nav class="site-nav" aria-label="Dashboard">
+        <span class="brand"
+          ><img
+            src="/nekosearch.png"
+            width="24"
+            height="24"
+            alt=""
+          />NekoSearch</span
+        >
+        <a class="button nav-link" href="/" aria-current="page">Catalog</a>
+        <a class="button nav-link" href="/usage">Usage</a>
+        <a class="button nav-link" href="/about">About</a>
+      </nav>
     </header>
     <main class="layout">
-      <div class="page-title">
-        <h1>Documentation</h1>
-        <button id="refresh" type="button" class="secondary" disabled>
-          Refresh catalog
-        </button>
+      <div class="page-header">
+        <div>
+          <h1 tabindex="-1">Catalog</h1>
+        </div>
+        <div class="page-actions">
+          <button id="refresh" type="button" class="button secondary" disabled>
+            Refresh
+          </button>
+          <a class="button prominent" href="/add">Add documentation</a>
+        </div>
       </div>
-      <div id="notice" class="notice" role="status">Loading the catalog…</div>
+      <p id="notice" class="notice" role="status">Loading the catalog…</p>
       <p id="restart" class="notice" hidden>
         Restart NekoSearch in your MCP client to pick up catalog changes.
       </p>
-      <div class="dashboard">
-        <section class="panel" aria-labelledby="catalog-heading">
-          <div class="panel-heading">
-            <h2 id="catalog-heading">Catalog</h2>
-            <span id="source-count" class="muted"></span>
+      <ul
+        id="catalog"
+        class="panel catalog"
+        aria-label="Documentation snapshots"
+        hidden
+      ></ul>
+      <template id="snapshot-row">
+        <li class="snapshot">
+          <div class="snapshot-main">
+            <div class="snapshot-heading">
+              <a class="snapshot-title-link"><strong></strong></a
+              ><span class="snapshot-status"></span>
+            </div>
+            <p class="snapshot-detail"><span></span><code></code></p>
           </div>
-          <ul id="catalog" class="catalog"></ul>
-        </section>
-        <section class="panel" aria-labelledby="add-heading">
-          <div class="panel-heading">
-            <h2 id="add-heading">Add documentation</h2>
-          </div>
-          <form id="curated-form" method="post">
-            <label for="curated-source">Curated source</label>
-            <select
-              id="curated-source"
-              name="selector"
-              required
-              disabled
-            ></select>
-            <button id="install" type="submit" class="primary" disabled>
-              Install source
-            </button>
-          </form>
-          <form id="local-form" method="post">
-            <label for="directory">Local Markdown or MDX folder</label>
-            <input
-              id="directory"
-              name="directory"
-              type="text"
-              required
-              placeholder="Absolute folder path"
-              spellcheck="false"
-            />
-            <label for="selector">Source and version</label>
-            <input
-              id="selector"
-              name="selector"
-              type="text"
-              required
-              maxlength="321"
-              placeholder="my-api@1"
-              spellcheck="false"
-            />
-            <button id="import" type="submit" class="primary" disabled>
-              Import folder
-            </button>
-          </form>
-        </section>
-      </div>
+          <div class="snapshot-actions"></div>
+        </li>
+      </template>
     </main>
-    <template id="snapshot-row">
-      <li class="snapshot">
-        <div class="snapshot-main">
-          <div class="snapshot-label">
-            <strong></strong><span class="badge"></span>
-          </div>
-          <p class="snapshot-detail"><span></span><code></code></p>
-        </div>
-        <div class="snapshot-actions"></div>
-      </li>
-    </template>
   </body>
 </html>

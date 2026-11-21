@@ -1,26 +1,6 @@
-const tokenFromLink = new URLSearchParams(window.location.hash.slice(1)).get(
-  'token',
-);
-if (tokenFromLink) {
-  sessionStorage.setItem('nekosearch-token', tokenFromLink);
-  window.history.replaceState(null, '', window.location.pathname);
-}
-const token = sessionStorage.getItem('nekosearch-token');
-const catalog = document.querySelector('#catalog');
-const sourceCount = document.querySelector('#source-count');
-const refresh = document.querySelector('#refresh');
-const notice = document.querySelector('#notice');
-const restart = document.querySelector('#restart');
-const localForm = document.querySelector('#local-form');
-const curatedForm = document.querySelector('#curated-form');
-const curatedSelect = document.querySelector('#curated-source');
-const install = document.querySelector('#install');
-const importFolder = document.querySelector('#import');
-const snapshotRow = document.querySelector('#snapshot-row');
+import { createDashboardApi } from './dashboard-api.js';
 
-let busy = false;
-let catalogReadable = false;
-
+const activeJobKey = 'nekosearch-active-job';
 const phases = {
   starting: 'Starting operation…',
   checking: 'Checking the upstream revision…',
@@ -32,190 +12,157 @@ const phases = {
   removing: 'Removing the snapshot…',
 };
 
-refresh.addEventListener('click', () => void refreshCatalog());
-curatedForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  void startJob({
-    operation: 'install-curated',
-    selector: curatedSelect.value,
-  });
-});
-localForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const fields = new FormData(localForm);
-  void startJob({
-    operation: 'import-directory',
-    selector: fields.get('selector'),
-    directory: fields.get('directory'),
-  });
-});
+export function createDashboard() {
+  const api = createDashboardApi();
+  let currentPage;
+  let started = false;
+  let catalog;
+  let busy = false;
+  let catalogReadable = false;
+  let restartNeeded = false;
+  let noticeMessage = 'Loading the catalog…';
+  let noticeKind = 'info';
 
-if (token) {
-  void refreshCatalog();
-} else {
-  showNotice(
-    'Open the dashboard using the link printed by NekoSearch.',
-    'error',
-  );
-}
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted && started) initialize();
+  });
 
-async function api(path, body) {
-  const headers = { Authorization: `Bearer ${token}` };
-  const options = { headers };
-  if (body) {
-    headers['Content-Type'] = 'application/json';
-    options.method = 'POST';
-    options.body = JSON.stringify(body);
+  return {
+    showPage,
+    refresh,
+    startJob,
+    readUsageSettings: () => requireApi().readUsageSettings(),
+    readUsage: (filters) => requireApi().readUsage(filters),
+    updateUsageSettings: (settings) =>
+      requireApi().updateUsageSettings(settings),
+    clearUsage: () => requireApi().clearUsage(),
+  };
+
+  function showPage(page) {
+    currentPage = page;
+    page.onShow?.();
+    if (catalog) page.renderCatalog?.(catalog);
+    updateControls();
+    updateNotice();
+    if (!started && page.renderCatalog) {
+      started = true;
+      initialize();
+    }
   }
-  const response = await fetch(path, options);
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error ?? 'The dashboard request failed.');
-  return data;
-}
 
-async function refreshCatalog() {
-  setBusy(true);
-  try {
+  function initialize() {
+    if (!api) {
+      showNotice(
+        'Open the dashboard using the link printed by NekoSearch.',
+        'error',
+      );
+      return;
+    }
+    const activeJob = sessionStorage.getItem(activeJobKey);
+    if (activeJob) void runTask(() => watchJob(activeJob));
+    else void refresh();
+  }
+
+  function refresh() {
+    return runTask(async () => {
+      showNotice(await loadCatalog(), 'error');
+    });
+  }
+
+  function startJob(input) {
+    if (!catalogReadable) return;
+    const onJobSucceeded = currentPage.onJobSucceeded;
+    return runTask(async () => {
+      showNotice(phases.starting);
+      const { id } = await api.startJob(input);
+      sessionStorage.setItem(activeJobKey, id);
+      await watchJob(id, input.operation, onJobSucceeded);
+    });
+  }
+
+  async function watchJob(id, operation, onJobSucceeded) {
+    try {
+      let { status } = await api.readJob(id);
+      while (status.state === 'running') {
+        showNotice(phases[status.phase] ?? 'Working…');
+        await new Promise((resolve) => window.setTimeout(resolve, 700));
+        ({ status } = await api.readJob(id));
+      }
+
+      if (status.state === 'succeeded') {
+        const { result } = status;
+        restartNeeded ||= result.catalogChanged;
+        onJobSucceeded?.(operation);
+        showNotice([result.message, result.warning].filter(Boolean).join(' '));
+      } else {
+        showNotice(status.error, 'error');
+      }
+    } catch (error) {
+      showNotice(error.message, 'error');
+    } finally {
+      if (sessionStorage.getItem(activeJobKey) === id)
+        sessionStorage.removeItem(activeJobKey);
+    }
+
+    if (operation === 'check-upstream') return;
     const warning = await loadCatalog();
-    showNotice(warning, 'error');
-  } catch (error) {
+    if (warning) showNotice(warning, 'error');
+  }
+
+  async function loadCatalog() {
     catalogReadable = false;
-    showNotice(error.message, 'error');
-  } finally {
-    setBusy(false);
+    catalog = await api.readCatalog();
+    currentPage.renderCatalog?.(catalog);
+    catalogReadable = catalog.readable;
+    return catalogReadable
+      ? ''
+      : catalog.errors.join(' ') || 'The catalog could not be read.';
   }
-}
 
-async function loadCatalog() {
-  const { readable, errors, entries, curatedSources } =
-    await api('/api/catalog');
-  catalogReadable = readable;
-  sourceCount.textContent = `${entries.length} ${entries.length === 1 ? 'source' : 'sources'}`;
-  catalog.replaceChildren(...entries.map(renderSnapshot));
-  if (entries.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'empty muted';
-    empty.textContent = 'No snapshots available.';
-    catalog.append(empty);
-  }
-  const available = curatedSources.filter(
-    (selector) => !entries.some((entry) => entry.selector === selector),
-  );
-  curatedSelect.replaceChildren(
-    ...available.map((selector) => new Option(selector, selector)),
-  );
-  if (available.length === 0)
-    curatedSelect.add(new Option('All curated sources installed', ''));
-  return readable ? '' : errors.join(' ') || 'The catalog could not be read.';
-}
-
-function renderSnapshot(entry) {
-  const row = snapshotRow.content.cloneNode(true);
-  row.querySelector('strong').textContent = entry.selector;
-  const badge =
-    entry.status === 'bundled'
-      ? 'Bundled'
-      : ({ tracked: 'Tracked', pinned: 'Pinned' }[entry.tracking] ??
-        'Imported');
-  row.querySelector('.badge').textContent = badge;
-  row.querySelector('.snapshot-detail span').textContent =
-    `${entry.documentCount} ${entry.documentCount === 1 ? 'document' : 'documents'}`;
-  const revision = row.querySelector('code');
-  revision.textContent =
-    entry.revision.length > 13
-      ? `${entry.revision.slice(0, 10)}…`
-      : entry.revision;
-  revision.title = entry.revision;
-  const actions = row.querySelector('.snapshot-actions');
-  if (entry.tracking === 'tracked') {
-    actions.append(
-      action('Check upstream', () =>
-        startJob({ operation: 'check-upstream', selector: entry.selector }),
-      ),
-    );
-    actions.append(
-      action('Update', () =>
-        startJob({
-          operation: 'update',
-          selector: entry.selector,
-          snapshotKey: entry.snapshotKey,
-        }),
-      ),
-    );
-  }
-  if (entry.status === 'installed') {
-    actions.append(
-      action(
-        'Remove',
-        () => {
-          if (window.confirm(`Remove ${entry.selector} from the catalog?`)) {
-            void startJob({
-              operation: 'remove',
-              selector: entry.selector,
-              snapshotKey: entry.snapshotKey,
-            });
-          }
-        },
-        'danger',
-      ),
-    );
-  }
-  return row;
-}
-
-function action(label, handler, variation = '') {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `secondary ${variation}`;
-  button.textContent = label;
-  button.addEventListener('click', () => void handler());
-  return button;
-}
-
-async function startJob(input) {
-  if (busy || !catalogReadable) return;
-  setBusy(true);
-  showNotice(phases.starting);
-  try {
-    let job = await api('/api/jobs', input);
-    while (job.status.state === 'running') {
-      showNotice(phases[job.status.phase] ?? 'Working…');
-      await new Promise((resolve) => window.setTimeout(resolve, 700));
-      job = await api(`/api/jobs/${job.id}`);
+  async function runTask(task) {
+    if (!api || busy) return;
+    busy = true;
+    updateControls();
+    try {
+      await task();
+    } catch (error) {
+      showNotice(error.message, 'error');
+    } finally {
+      busy = false;
+      updateControls();
     }
-    if (job.status.state === 'succeeded') {
-      const { result } = job.status;
-      if (result.catalogChanged) restart.hidden = false;
-      if (input.operation === 'import-directory') localForm.reset();
-      showNotice([result.message, result.warning].filter(Boolean).join(' '));
-    } else {
-      showNotice(job.status.error, 'error');
-    }
-    if (input.operation !== 'check-upstream') {
-      const warning = await loadCatalog();
-      if (warning) showNotice(warning, 'error');
-    }
-  } catch (error) {
-    showNotice(error.message, 'error');
-  } finally {
-    setBusy(false);
   }
-}
 
-function showNotice(message, kind = 'info') {
-  if (notice.textContent !== message) notice.textContent = message;
-  notice.hidden = !message;
-  notice.dataset.kind = kind;
-}
+  function updateControls() {
+    currentPage.setControls?.({
+      canRefresh: Boolean(api) && !busy,
+      canModify: catalogReadable && !busy,
+    });
+  }
 
-function setBusy(active) {
-  busy = active;
-  refresh.disabled = active;
-  const disableActions = active || !catalogReadable;
-  curatedSelect.disabled = disableActions || !curatedSelect.value;
-  install.disabled = curatedSelect.disabled;
-  importFolder.disabled = disableActions;
-  for (const button of catalog.querySelectorAll('button'))
-    button.disabled = disableActions;
+  function showNotice(message, kind = 'info') {
+    noticeMessage = message;
+    noticeKind = kind;
+    updateNotice();
+  }
+
+  function updateNotice() {
+    const notice = currentPage.main.querySelector('#notice');
+    if (notice) {
+      if (notice.textContent !== noticeMessage)
+        notice.textContent = noticeMessage;
+      notice.hidden = !noticeMessage;
+      notice.dataset.kind = noticeKind;
+    }
+    const restart = currentPage.main.querySelector('#restart');
+    if (restart) restart.hidden = !restartNeeded;
+  }
+
+  function requireApi() {
+    if (!api)
+      throw new Error(
+        'Open the dashboard using the link printed by NekoSearch.',
+      );
+    return api;
+  }
 }

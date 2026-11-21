@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>About NekoSearch</title>
+    <link rel="icon" type="image/png" sizes="96x96" href="/nekosearch.png" />
+    <link rel="stylesheet" href="/dashboard.css" />
+    <script type="module" src="/navigation.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="site-nav" aria-label="Dashboard">
+        <span class="brand"
+          ><img
+            src="/nekosearch.png"
+            width="24"
+            height="24"
+            alt=""
+          />NekoSearch</span
+        >
+        <a class="button nav-link" href="/">Catalog</a>
+        <a class="button nav-link" href="/usage">Usage</a>
+        <a class="button nav-link" href="/about" aria-current="page">About</a>
+      </nav>
+    </header>
+    <main class="layout about-page">
+      <h1 tabindex="-1">About</h1>
+      <p class="about-description">
+        NekoSearch is an open-source MCP server that gives coding agents access
+        to local documentation. Install curated sources such as NestJS or import
+        your own Markdown and MDX. Your agent can search and read installed
+        snapshots offline.
+      </p>
+      <ul class="about-links" aria-label="Project resources">
+        <li>
+          <a
+            class="button secondary"
+            href="https://github.com/rafaself/nekosearch"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View repository (opens in a new tab)"
+          >
+            View repository
+            <span class="external-icon" aria-hidden="true">↗</span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="button secondary"
+            href="https://github.com/rafaself/nekosearch/issues/new/choose"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open an issue (opens in a new tab)"
+          >
+            Open an issue
+            <span class="external-icon" aria-hidden="true">↗</span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="button secondary"
+            href="https://nekosearch.pages.dev/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Read the docs (opens in a new tab)"
+          >
+            Read the docs
+            <span class="external-icon" aria-hidden="true">↗</span>
+          </a>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
