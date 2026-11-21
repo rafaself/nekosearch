@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { addSnapshot } from '../../../../apps/nekosearch/src/catalog.js';
+import { UsageStatsStore } from '../../../../apps/nekosearch/src/usage-stats.js';
 import { createDocumentationTestIndex } from '../../../fixtures/documentation-index.js';
 
 const entryPoint = fileURLToPath(
@@ -200,6 +201,103 @@ describe('nekosearch serve stdio server', () => {
         child.kill('SIGKILL');
         if (closed) await closed;
       }
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 10000);
+
+  it('records local tool, source, document and section usage when enabled', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'nekosearch-usage-e2e-'));
+    const dataHome = await createSyntheticCatalog(directory);
+    const usage = new UsageStatsStore(join(dataHome, 'nekosearch'));
+    usage.updateSettings({
+      enabled: true,
+      queryMode: 'counts',
+      retentionDays: 30,
+    });
+    const transport = createTransport(dataHome, directory);
+    const client = new Client({ name: 'usage-test', version: '0.0.1' });
+    let closed: Promise<unknown[]> | undefined;
+
+    try {
+      await client.connect(transport);
+      const child = getChildProcess(transport);
+      if (!child) throw new Error('stdio server process did not start');
+      closed = once(child, 'close');
+      const listed = await client.callTool({
+        name: 'list_docs',
+        arguments: {},
+      });
+      expect(listed.isError).not.toBe(true);
+      const searched = await client.callTool({
+        name: 'search_docs',
+        arguments: {
+          query: 'ExecutionContext',
+          sources: ['synthetic-mcp-documentation@12'],
+          limit: 1,
+        },
+      });
+      expect(searched.isError).not.toBe(true);
+      const search = searched.structuredContent as {
+        groups: Array<{
+          selector: string;
+          results: Array<{ documentId: string; chunkId: string }>;
+        }>;
+      };
+      const hit = search.groups[0]?.results[0];
+      if (!hit) throw new Error('search_docs returned no result');
+      const fetched = await client.callTool({
+        name: 'fetch_docs',
+        arguments: {
+          selector: 'synthetic-mcp-documentation@12',
+          documentId: hit.documentId,
+          sectionId: hit.chunkId,
+        },
+      });
+      expect(fetched.isError).not.toBe(true);
+
+      const summary = usage.getSummary({ window: 'all' });
+      expect(summary.totals).toMatchObject({
+        calls: 3,
+        successes: 3,
+        failures: 0,
+      });
+      expect(summary.tools.map(({ tool }) => tool).sort()).toEqual([
+        'fetch_docs',
+        'list_docs',
+        'search_docs',
+      ]);
+      expect(summary.sources).toContainEqual({
+        selector: 'synthetic-mcp-documentation@12',
+        calls: 3,
+        results: 2,
+      });
+      expect(summary.topDocuments).toContainEqual(
+        expect.objectContaining({
+          selector: 'synthetic-mcp-documentation@12',
+          documentId: hit.documentId,
+          searchHits: 1,
+          fetchCalls: 1,
+          foundFetches: 1,
+        }),
+      );
+      expect(summary.topSections).toContainEqual(
+        expect.objectContaining({
+          selector: 'synthetic-mcp-documentation@12',
+          documentId: hit.documentId,
+          sectionId: hit.chunkId,
+          searchHits: 1,
+          fetchCalls: 1,
+        }),
+      );
+      expect(
+        summary.recentCalls.find((call) => call.tool === 'search_docs'),
+      ).toMatchObject({
+        query: null,
+        queryLength: 'ExecutionContext'.length,
+      });
+    } finally {
+      await client.close().catch(() => undefined);
+      if (closed) await closed;
       rmSync(directory, { recursive: true, force: true });
     }
   }, 10000);

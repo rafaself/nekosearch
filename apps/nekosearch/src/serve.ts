@@ -33,6 +33,7 @@ import {
   listCatalogIndexes,
   type DocumentationCatalogEntry,
 } from './catalog.js';
+import { UsageStatsStore } from './usage-stats.js';
 
 const serverInstructions =
   'Call list_docs to discover the documentation selectors available in this session. Search one or more exact selectors with search_docs, then pass a result group selector and document ID to fetch_docs. Pass a result chunkId as fetch_docs sectionId when you want that section. Results are grouped by source. Cite the returned source URL and revision.';
@@ -116,6 +117,12 @@ export async function serve(): Promise<void> {
       instructions: serverInstructions,
     },
   );
+  const usageStats = new UsageStatsStore(undefined, Date.now, (error) => {
+    process.stderr.write(
+      `MCP usage statistics could not be stored (${getErrorClass(error)}).\n`,
+    );
+  });
+  usageStats.pruneExpired();
   server.registerTool(
     'list_docs',
     {
@@ -125,12 +132,19 @@ export async function serve(): Promise<void> {
       outputSchema: catalogListDocsOutputSchema,
       annotations: readOnlyAnnotations,
     },
-    () =>
-      runTool('list_docs', () =>
-        listCatalogDocumentation(runtimesBySelector.values()),
+    (input) =>
+      usageStats.record('list_docs', input, () =>
+        runTool('list_docs', () =>
+          listCatalogDocumentation(runtimesBySelector.values()),
+        ),
       ),
   );
-  registerSearchDocsTool(server, runtimesBySelector, queryEmbeddingProvider);
+  registerSearchDocsTool(
+    server,
+    runtimesBySelector,
+    queryEmbeddingProvider,
+    usageStats,
+  );
   server.registerTool(
     'fetch_docs',
     {
@@ -141,21 +155,23 @@ export async function serve(): Promise<void> {
       annotations: readOnlyAnnotations,
     },
     (input) =>
-      runTool('fetch_docs', () => {
-        const runtime = findRuntime(runtimesBySelector, input.selector);
-        const result = fetchDocumentation(runtime.documentation, {
-          documentId: input.documentId,
-          sectionId: input.sectionId,
-          cursor: input.cursor,
-        });
-        return {
-          ...result,
-          structuredContent: {
-            ...result.structuredContent,
-            ...documentationSource(runtime),
-          },
-        };
-      }),
+      usageStats.record('fetch_docs', input, () =>
+        runTool('fetch_docs', () => {
+          const runtime = findRuntime(runtimesBySelector, input.selector);
+          const result = fetchDocumentation(runtime.documentation, {
+            documentId: input.documentId,
+            sectionId: input.sectionId,
+            cursor: input.cursor,
+          });
+          return {
+            ...result,
+            structuredContent: {
+              ...result.structuredContent,
+              ...documentationSource(runtime),
+            },
+          };
+        }),
+      ),
   );
 
   const stores = runtimes.map((runtime) => runtime.store);
@@ -172,6 +188,7 @@ export function registerSearchDocsTool(
   server: McpServer,
   runtimesBySelector: ReadonlyMap<string, SearchableCatalogRuntime>,
   embeddingProvider?: SemanticQueryEmbeddingProvider,
+  usageStats = new UsageStatsStore(),
 ): void {
   server.registerTool(
     'search_docs',
@@ -182,18 +199,20 @@ export function registerSearchDocsTool(
       annotations: readOnlyAnnotations,
     },
     (input) => {
-      if (!embeddingProvider) {
-        return runTool('search_docs', () =>
-          searchCatalogDocumentation(runtimesBySelector, input),
+      return usageStats.record('search_docs', input, () => {
+        if (!embeddingProvider) {
+          return runTool('search_docs', () =>
+            searchCatalogDocumentation(runtimesBySelector, input),
+          );
+        }
+        return runAsyncTool('search_docs', () =>
+          searchCatalogDocumentationWithSemantic(
+            runtimesBySelector,
+            input,
+            embeddingProvider,
+          ),
         );
-      }
-      return runAsyncTool('search_docs', () =>
-        searchCatalogDocumentationWithSemantic(
-          runtimesBySelector,
-          input,
-          embeddingProvider,
-        ),
-      );
+      });
     },
   );
 }
@@ -465,7 +484,7 @@ function runTool<T>(name: string, handler: () => T): T {
   } catch (error) {
     if (process.env.DEBUG === '1')
       process.stderr.write(
-        `MCP tool ${name} failure in ${Date.now() - startedAt} ms: ${formatError(error)}\n`,
+        `MCP tool ${name} failure in ${Date.now() - startedAt} ms (${getErrorClass(error)}).\n`,
       );
     throw error;
   }
@@ -484,7 +503,7 @@ function runAsyncTool<T>(name: string, handler: () => Promise<T>): Promise<T> {
     (error: unknown) => {
       if (process.env.DEBUG === '1')
         process.stderr.write(
-          `MCP tool ${name} failure in ${Date.now() - startedAt} ms: ${formatError(error)}\n`,
+          `MCP tool ${name} failure in ${Date.now() - startedAt} ms (${getErrorClass(error)}).\n`,
         );
       throw error;
     },
@@ -513,4 +532,9 @@ function formatError(error: unknown): string {
   return error instanceof Error
     ? (error.stack ?? error.message)
     : String(error);
+}
+
+function getErrorClass(error: unknown): string {
+  if (!(error instanceof Error)) return 'Error';
+  return error.name.replace(/[^A-Za-z0-9_.$]/gu, '').slice(0, 100) || 'Error';
 }
