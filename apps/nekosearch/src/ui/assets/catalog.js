@@ -1,5 +1,3 @@
-import { createSnapshotActionButtons } from './snapshot-actions.js';
-
 export function createCatalogPage(main, dashboard) {
   const catalog = main.querySelector('#catalog');
   const refreshButton = main.querySelector('#refresh');
@@ -46,17 +44,12 @@ export function createCatalogPage(main, dashboard) {
     revision.title = entry.revision;
 
     const actions = row.querySelector('.snapshot-actions');
-    actions.role = 'group';
-    actions.setAttribute('aria-label', `Actions for ${entry.selector}`);
     const details = document.createElement('a');
     details.className = 'button secondary';
     details.href = detailsPath;
     details.setAttribute('aria-label', `Details for ${entry.selector}`);
     details.textContent = 'Details';
     actions.append(details);
-    actions.append(
-      ...createSnapshotActionButtons(entry, dashboard, { iconActions: true }),
-    );
     actions.hidden = !actions.childElementCount;
     return row;
   }
