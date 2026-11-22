@@ -13,13 +13,13 @@
   },
   "index": {
     "file": "index.sqlite",
-    "sha256": "0b1a18a242a0eddc5a88690523e25980841e36b375e111f145a47a0e750fb0d8",
+    "sha256": "abdf10ff3a5031de1853743d37ddccaef871ab990e168f8b513260e906d3380f",
     "documentationVersion": "2025-11-25",
     "sourceRevision": "2025-11-25",
     "schemaVersion": 1,
     "formatVersion": 2,
-    "documentCount": 5,
-    "chunkCount": 12
+    "documentCount": 8,
+    "chunkCount": 63
   },
   "pipeline": {
     "parserVersion": 2,
@@ -34,8 +34,8 @@
   "corpus": {
     "formatVersion": 2,
     "file": "corpus.json",
-    "sha256": "f0a62d19b49260279e25783139234ee81c46f3d7645eef900e85cb0de1854f5f",
-    "documentCount": 5,
+    "sha256": "6ead9941127fe480cd59823bb9f9a481568310069106c0cbd7170facb3a53e40",
+    "documentCount": 8,
     "documents": [
       {
         "id": "mcp-spec:v2025-11-25:a4de0d8c161e3170b636db4a1271623fe1413a28e6708fc2d39fa5a5cc291dd4",
@@ -56,10 +56,28 @@
         "normalizedContentHash": "d63a475dc64662247222f2a14697395e1e4ae1e5d3086956e540e12991d12788"
       },
       {
+        "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+        "path": "resources.md",
+        "sourceContentHash": "fd36dcdb7364e66cc4d905f36277340f81f8cfff36f28598fc145a205ef8e4e8",
+        "normalizedContentHash": "fd36dcdb7364e66cc4d905f36277340f81f8cfff36f28598fc145a205ef8e4e8"
+      },
+      {
+        "id": "mcp-spec:v2025-11-25:1e0c04c1e32365ca0ed052c2453ad5e6f49f273131f7466bbaff11af2377ea0d",
+        "path": "tool-annotations-schema.md",
+        "sourceContentHash": "d4c2a6fe57d240a4d6e945fd1692ab8bef6d8fca2b2c0b20fb97ed17bf5d0ded",
+        "normalizedContentHash": "d4c2a6fe57d240a4d6e945fd1692ab8bef6d8fca2b2c0b20fb97ed17bf5d0ded"
+      },
+      {
         "id": "mcp-spec:v2025-11-25:889600b9b333133bec391930b51ef705e6ccbc4f5db3be7c685fa92a971f92ec",
         "path": "tools-resources-prompts.md",
         "sourceContentHash": "8be41c56f71eb9c32086ab5a81334ed70fcbc861d37856562c0777b23b8a66b3",
         "normalizedContentHash": "8be41c56f71eb9c32086ab5a81334ed70fcbc861d37856562c0777b23b8a66b3"
+      },
+      {
+        "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+        "path": "tools.md",
+        "sourceContentHash": "5cce26af0d9a0ebfb854f3241d3f5a2cdde95a6d2dc07aaedf82001244aaea52",
+        "normalizedContentHash": "5cce26af0d9a0ebfb854f3241d3f5a2cdde95a6d2dc07aaedf82001244aaea52"
       },
       {
         "id": "mcp-spec:v2025-11-25:2e16f531c762b6be1169a1b20b73fa8ed34dfee9eef87ab3a8f1be797df8cb62",

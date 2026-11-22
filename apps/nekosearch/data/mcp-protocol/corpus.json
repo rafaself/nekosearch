@@ -229,6 +229,919 @@
       ]
     },
     {
+      "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+      "version": "2025-11-25",
+      "title": "Resources",
+      "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources",
+      "source": {
+        "provenance": {
+          "kind": "git",
+          "repository": "https://github.com/modelcontextprotocol/modelcontextprotocol",
+          "ref": "2025-11-25",
+          "revision": "2025-11-25"
+        },
+        "path": "resources.md",
+        "location": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources",
+        "contentHash": "fd36dcdb7364e66cc4d905f36277340f81f8cfff36f28598fc145a205ef8e4e8"
+      },
+      "markdown": "> ## Documentation Index\n>\n> Fetch the complete documentation index at: https://modelcontextprotocol.io/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# Resources\n\nThe Model Context Protocol (MCP) provides a standardized way for servers to expose\nresources to clients. Resources allow servers to share data that provides context to\nlanguage models, such as files, database schemas, or application-specific information.\nEach resource is uniquely identified by a\n[URI](https://datatracker.ietf.org/doc/html/rfc3986).\n\n## User Interaction Model\n\nResources in MCP are designed to be **application-driven**, with host applications\ndetermining how to incorporate context based on their needs.\n\nFor example, applications could:\n\n- Expose resources through UI elements for explicit selection, in a tree or list view\n- Allow the user to search through and filter available resources\n- Implement automatic context inclusion, based on heuristics or the AI model's selection\n\n![Example of resource context picker](https://mintcdn.com/mcp/uzELntid9uQ-QMAr/specification/2025-11-25/server/resource-picker.png?fit=max&auto=format&n=uzELntid9uQ-QMAr&q=85&s=bc7bc3db17d447a69809689e5888a3ab)\n\nHowever, implementations are free to expose resources through any interface pattern that\nsuits their needs—the protocol itself does not mandate any specific user\ninteraction model.\n\n## Capabilities\n\nServers that support resources **MUST** declare the `resources` capability:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true,\n      \"listChanged\": true\n    }\n  }\n}\n```\n\nThe capability supports two optional features:\n\n- `subscribe`: whether the client can subscribe to be notified of changes to individual\n  resources.\n- `listChanged`: whether the server will emit notifications when the list of available\n  resources changes.\n\nBoth `subscribe` and `listChanged` are optional—servers can support neither,\neither, or both:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {} // Neither feature supported\n  }\n}\n```\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true // Only subscriptions supported\n    }\n  }\n}\n```\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"listChanged\": true // Only list change notifications supported\n    }\n  }\n}\n```\n\n## Protocol Messages\n\n### Listing Resources\n\nTo discover available resources, clients send a `resources/list` request. This operation\nsupports [pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"resources/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"resources\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"name\": \"main.rs\",\n        \"title\": \"Rust Software Application Main File\",\n        \"description\": \"Primary application entry point\",\n        \"mimeType\": \"text/x-rust\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/rust-file-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}\n```\n\n### Reading Resources\n\nTo retrieve resource contents, clients send a `resources/read` request:\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"resources/read\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"contents\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"mimeType\": \"text/x-rust\",\n        \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n      }\n    ]\n  }\n}\n```\n\n### Resource Templates\n\nResource templates allow servers to expose parameterized resources using\n[URI templates](https://datatracker.ietf.org/doc/html/rfc6570). Arguments may be\nauto-completed through [the completion API](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"resources/templates/list\"\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"result\": {\n    \"resourceTemplates\": [\n      {\n        \"uriTemplate\": \"file:///{path}\",\n        \"name\": \"Project Files\",\n        \"title\": \"📁 Project Files\",\n        \"description\": \"Access files in the project directory\",\n        \"mimeType\": \"application/octet-stream\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/folder-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n\n### List Changed Notification\n\nWhen the list of available resources changes, servers that declared the `listChanged`\ncapability **SHOULD** send a notification:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/list_changed\"\n}\n```\n\n### Subscriptions\n\nThe protocol supports optional subscriptions to resource changes. Clients can subscribe\nto specific resources and receive notifications when they change:\n\n**Subscribe Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"method\": \"resources/subscribe\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n\n**Update Notification:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/updated\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n\n## Message Flow\n\n```mermaid theme={null}\nsequenceDiagram\n    participant Client\n    participant Server\n\n    Note over Client,Server: Resource Discovery\n    Client->>Server: resources/list\n    Server-->>Client: List of resources\n\n    Note over Client,Server: Resource Template Discovery\n    Client->>Server: resources/templates/list\n    Server-->>Client: List of resource templates\n\n    Note over Client,Server: Resource Access\n    Client->>Server: resources/read\n    Server-->>Client: Resource contents\n\n    Note over Client,Server: Subscriptions\n    Client->>Server: resources/subscribe\n    Server-->>Client: Subscription confirmed\n\n    Note over Client,Server: Updates\n    Server--)Client: notifications/resources/updated\n    Client->>Server: resources/read\n    Server-->>Client: Updated contents\n```\n\n## Data Types\n\n### Resource\n\nA resource definition includes:\n\n- `uri`: Unique identifier for the resource\n- `name`: The name of the resource.\n- `title`: Optional human-readable name of the resource for display purposes.\n- `description`: Optional description\n- `icons`: Optional array of icons for display in user interfaces\n- `mimeType`: Optional MIME type\n- `size`: Optional size in bytes\n\n### Resource Contents\n\nResources can contain either text or binary data:\n\n#### Text Content\n\n```json theme={null}\n{\n  \"uri\": \"file:///example.txt\",\n  \"mimeType\": \"text/plain\",\n  \"text\": \"Resource content\"\n}\n```\n\n#### Binary Content\n\n```json theme={null}\n{\n  \"uri\": \"file:///example.png\",\n  \"mimeType\": \"image/png\",\n  \"blob\": \"base64-encoded-data\"\n}\n```\n\n### Annotations\n\nResources, resource templates and content blocks support optional annotations that provide hints to clients about how to use or display the resource:\n\n- **`audience`**: An array indicating the intended audience(s) for this resource. Valid values are `\"user\"` and `\"assistant\"`. For example, `[\"user\", \"assistant\"]` indicates content useful for both.\n- **`priority`**: A number from 0.0 to 1.0 indicating the importance of this resource. A value of 1 means \"most important\" (effectively required), while 0 means \"least important\" (entirely optional).\n- **`lastModified`**: An ISO 8601 formatted timestamp indicating when the resource was last modified (e.g., `\"2025-01-12T15:00:58Z\"`).\n\nExample resource with annotations:\n\n```json theme={null}\n{\n  \"uri\": \"file:///project/README.md\",\n  \"name\": \"README.md\",\n  \"title\": \"Project Documentation\",\n  \"mimeType\": \"text/markdown\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.8,\n    \"lastModified\": \"2025-01-12T15:00:58Z\"\n  }\n}\n```\n\nClients can use these annotations to:\n\n- Filter resources based on their intended audience\n- Prioritize which resources to include in context\n- Display modification times or sort by recency\n\n## Common URI Schemes\n\nThe protocol defines several standard URI schemes. This list not\nexhaustive—implementations are always free to use additional, custom URI schemes.\n\n### https\\://\n\nUsed to represent a resource available on the web.\n\nServers **SHOULD** use this scheme only when the client is able to fetch and load the\nresource directly from the web on its own—that is, it doesn’t need to read the resource\nvia the MCP server.\n\nFor other use cases, servers **SHOULD** prefer to use another URI scheme, or define a\ncustom one, even if the server will itself be downloading resource contents over the\ninternet.\n\n### file://\n\nUsed to identify resources that behave like a filesystem. However, the resources do not\nneed to map to an actual physical filesystem.\n\nMCP servers **MAY** identify file:// resources with an\n[XDG MIME type](https://specifications.freedesktop.org/shared-mime-info-spec/0.14/ar01s02.html#id-1.3.14),\nlike `inode/directory`, to represent non-regular files (such as directories) that don’t\notherwise have a standard MIME type.\n\n### git://\n\nGit version control integration.\n\n### Custom URI Schemes\n\nCustom URI schemes **MUST** be in accordance with [RFC3986](https://datatracker.ietf.org/doc/html/rfc3986),\ntaking the above guidance in to account.\n\n## Error Handling\n\nServers **SHOULD** return standard JSON-RPC errors for common failure cases:\n\n- Resource not found: `-32002`\n- Internal errors: `-32603`\n\nExample error:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"error\": {\n    \"code\": -32002,\n    \"message\": \"Resource not found\",\n    \"data\": {\n      \"uri\": \"file:///nonexistent.txt\"\n    }\n  }\n}\n```\n\n## Security Considerations\n\n1. Servers **MUST** validate all resource URIs\n2. Access controls **SHOULD** be implemented for sensitive resources\n3. Binary data **MUST** be properly encoded\n4. Resource permissions **SHOULD** be checked before operations\n\nThis documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.\n",
+      "contentHash": "fd36dcdb7364e66cc4d905f36277340f81f8cfff36f28598fc145a205ef8e4e8",
+      "headings": [
+        {
+          "level": 1,
+          "title": "Resources",
+          "slug": "resources"
+        },
+        {
+          "level": 2,
+          "title": "User Interaction Model",
+          "slug": "user-interaction-model"
+        },
+        {
+          "level": 2,
+          "title": "Capabilities",
+          "slug": "capabilities"
+        },
+        {
+          "level": 2,
+          "title": "Protocol Messages",
+          "slug": "protocol-messages"
+        },
+        {
+          "level": 3,
+          "title": "Listing Resources",
+          "slug": "listing-resources"
+        },
+        {
+          "level": 3,
+          "title": "Reading Resources",
+          "slug": "reading-resources"
+        },
+        {
+          "level": 3,
+          "title": "Resource Templates",
+          "slug": "resource-templates"
+        },
+        {
+          "level": 3,
+          "title": "List Changed Notification",
+          "slug": "list-changed-notification"
+        },
+        {
+          "level": 3,
+          "title": "Subscriptions",
+          "slug": "subscriptions"
+        },
+        {
+          "level": 2,
+          "title": "Message Flow",
+          "slug": "message-flow"
+        },
+        {
+          "level": 2,
+          "title": "Data Types",
+          "slug": "data-types"
+        },
+        {
+          "level": 3,
+          "title": "Resource",
+          "slug": "resource"
+        },
+        {
+          "level": 3,
+          "title": "Resource Contents",
+          "slug": "resource-contents"
+        },
+        {
+          "level": 4,
+          "title": "Text Content",
+          "slug": "text-content"
+        },
+        {
+          "level": 4,
+          "title": "Binary Content",
+          "slug": "binary-content"
+        },
+        {
+          "level": 3,
+          "title": "Annotations",
+          "slug": "annotations"
+        },
+        {
+          "level": 2,
+          "title": "Common URI Schemes",
+          "slug": "common-uri-schemes"
+        },
+        {
+          "level": 3,
+          "title": "https://",
+          "slug": "https"
+        },
+        {
+          "level": 3,
+          "title": "file://",
+          "slug": "file"
+        },
+        {
+          "level": 3,
+          "title": "git://",
+          "slug": "git"
+        },
+        {
+          "level": 3,
+          "title": "Custom URI Schemes",
+          "slug": "custom-uri-schemes"
+        },
+        {
+          "level": 2,
+          "title": "Error Handling",
+          "slug": "error-handling"
+        },
+        {
+          "level": 2,
+          "title": "Security Considerations",
+          "slug": "security-considerations"
+        }
+      ],
+      "chunks": [
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:d49583a539be656c492422aeb5d387962b11b3a1a3c7b2fd5032ea8ca3e53f36",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 0,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [],
+          "markdown": "> ## Documentation Index\n>\n> Fetch the complete documentation index at: https://modelcontextprotocol.io/llms.txt\n> Use this file to discover all available pages before exploring further.\n",
+          "contentHash": "774ed016905d86a20c74141502285a458397df1b990ccd85b157c1f8dabadb78",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:e60848949c4be4f50df5d60a02545fa951af29a89f5140fd65a9b75717da5bcd",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 1,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#resources",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            }
+          ],
+          "markdown": "# Resources\n\nThe Model Context Protocol (MCP) provides a standardized way for servers to expose\nresources to clients. Resources allow servers to share data that provides context to\nlanguage models, such as files, database schemas, or application-specific information.\nEach resource is uniquely identified by a\n[URI](https://datatracker.ietf.org/doc/html/rfc3986).\n",
+          "contentHash": "4c45528cb6e897f7d720ef5f7594e861b0032bb5f5bc65a1ab63cc2de4b9a5c6",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:1fefcc80456accef1221bcdb4996205b18c621df07ba387ec0d09f34e1074b96",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 2,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#user-interaction-model",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "User Interaction Model",
+              "slug": "user-interaction-model"
+            }
+          ],
+          "markdown": "## User Interaction Model\n\nResources in MCP are designed to be **application-driven**, with host applications\ndetermining how to incorporate context based on their needs.\n\nFor example, applications could:\n\n- Expose resources through UI elements for explicit selection, in a tree or list view\n- Allow the user to search through and filter available resources\n- Implement automatic context inclusion, based on heuristics or the AI model's selection\n\n![Example of resource context picker](https://mintcdn.com/mcp/uzELntid9uQ-QMAr/specification/2025-11-25/server/resource-picker.png?fit=max&auto=format&n=uzELntid9uQ-QMAr&q=85&s=bc7bc3db17d447a69809689e5888a3ab)\n\nHowever, implementations are free to expose resources through any interface pattern that\nsuits their needs—the protocol itself does not mandate any specific user\ninteraction model.\n",
+          "contentHash": "2a35cd7c3a0678e86ee4f25edce2fd9349594a015a56c3445b38afcf061f9dd8",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:9fd7c858d42f9be3b7280cd0b9836a8d8820ba9b894ac3b8a7fe9b7d9db1391f",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 3,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#capabilities",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Capabilities",
+              "slug": "capabilities"
+            }
+          ],
+          "markdown": "## Capabilities\n\nServers that support resources **MUST** declare the `resources` capability:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true,\n      \"listChanged\": true\n    }\n  }\n}\n```\n\nThe capability supports two optional features:\n\n- `subscribe`: whether the client can subscribe to be notified of changes to individual\n  resources.\n- `listChanged`: whether the server will emit notifications when the list of available\n  resources changes.\n\nBoth `subscribe` and `listChanged` are optional—servers can support neither,\neither, or both:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {} // Neither feature supported\n  }\n}\n```\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true // Only subscriptions supported\n    }\n  }\n}\n```\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"resources\": {\n      \"listChanged\": true // Only list change notifications supported\n    }\n  }\n}\n```\n",
+          "contentHash": "53d5ef430c4a17658c518240658c510cf9c66df5c8b40a334b725efbcca0965c",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true,\n      \"listChanged\": true\n    }\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"capabilities\": {\n    \"resources\": {} // Neither feature supported\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"capabilities\": {\n    \"resources\": {\n      \"subscribe\": true // Only subscriptions supported\n    }\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"capabilities\": {\n    \"resources\": {\n      \"listChanged\": true // Only list change notifications supported\n    }\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:6619c85721c51f79bd32ca0d156a06fb2b0d9d5571170353757271316cff2c46",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 4,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#protocol-messages",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            }
+          ],
+          "markdown": "## Protocol Messages\n",
+          "contentHash": "657595b64fd805a1a1e785e992dfd92f6a42a4889614d994340a6e32b7f6dcc8",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:1defe3b401e9bb31de213c2e58596305b8068b07e6ec19983c65ed04dea93815",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 5,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#listing-resources",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Listing Resources",
+              "slug": "listing-resources"
+            }
+          ],
+          "markdown": "### Listing Resources\n\nTo discover available resources, clients send a `resources/list` request. This operation\nsupports [pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"resources/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"resources\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"name\": \"main.rs\",\n        \"title\": \"Rust Software Application Main File\",\n        \"description\": \"Primary application entry point\",\n        \"mimeType\": \"text/x-rust\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/rust-file-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}\n```\n",
+          "contentHash": "f90de493818105cc1ea72c619d1119f773a7025e47116d252c83335a8bb5b0da",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"resources/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"resources\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"name\": \"main.rs\",\n        \"title\": \"Rust Software Application Main File\",\n        \"description\": \"Primary application entry point\",\n        \"mimeType\": \"text/x-rust\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/rust-file-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:13114d5d084de9e04d787c34bd674e3891e82134d7061538d251cc9c12e883d0",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 6,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#reading-resources",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Reading Resources",
+              "slug": "reading-resources"
+            }
+          ],
+          "markdown": "### Reading Resources\n\nTo retrieve resource contents, clients send a `resources/read` request:\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"resources/read\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"contents\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"mimeType\": \"text/x-rust\",\n        \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n      }\n    ]\n  }\n}\n```\n",
+          "contentHash": "01dcd3225c6a8bb056117a7f1dadaea9d8c553d183b56aa7fa3da31a73910c44",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"resources/read\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"contents\": [\n      {\n        \"uri\": \"file:///project/src/main.rs\",\n        \"mimeType\": \"text/x-rust\",\n        \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:42d069bbfff634dc5060db6fe8dc2690a280a3d9b5982f7040247333827d91bc",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 7,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#resource-templates",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Resource Templates",
+              "slug": "resource-templates"
+            }
+          ],
+          "markdown": "### Resource Templates\n\nResource templates allow servers to expose parameterized resources using\n[URI templates](https://datatracker.ietf.org/doc/html/rfc6570). Arguments may be\nauto-completed through [the completion API](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"resources/templates/list\"\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"result\": {\n    \"resourceTemplates\": [\n      {\n        \"uriTemplate\": \"file:///{path}\",\n        \"name\": \"Project Files\",\n        \"title\": \"📁 Project Files\",\n        \"description\": \"Access files in the project directory\",\n        \"mimeType\": \"application/octet-stream\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/folder-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n",
+          "contentHash": "ad8b1013333af70b384ccfb4e146f0f6db4a4747cf3ba44db81489cbbeb5236e",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"resources/templates/list\"\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"result\": {\n    \"resourceTemplates\": [\n      {\n        \"uriTemplate\": \"file:///{path}\",\n        \"name\": \"Project Files\",\n        \"title\": \"📁 Project Files\",\n        \"description\": \"Access files in the project directory\",\n        \"mimeType\": \"application/octet-stream\",\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/folder-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ]\n      }\n    ]\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:46e51c2365ebcc9b2c6e0f9fd436abc8577e9d5cab862456c8f2afc69036b64f",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 8,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#list-changed-notification",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "List Changed Notification",
+              "slug": "list-changed-notification"
+            }
+          ],
+          "markdown": "### List Changed Notification\n\nWhen the list of available resources changes, servers that declared the `listChanged`\ncapability **SHOULD** send a notification:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/list_changed\"\n}\n```\n",
+          "contentHash": "a13dcec2c8405c939b3e1c58be7bdc811d448aeb8e5e0b8f46a04cd1ccd4f07b",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/list_changed\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:fed2ac5691d8908ff18759ed5bb6454755a6b4525d547f0ebca411fccd469623",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 9,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#subscriptions",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Subscriptions",
+              "slug": "subscriptions"
+            }
+          ],
+          "markdown": "### Subscriptions\n\nThe protocol supports optional subscriptions to resource changes. Clients can subscribe\nto specific resources and receive notifications when they change:\n\n**Subscribe Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"method\": \"resources/subscribe\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n\n**Update Notification:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/updated\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}\n```\n",
+          "contentHash": "016defe2e9404b0fd8fe1493c43f686ba76503a12fdca46251b936f8850e76be",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"method\": \"resources/subscribe\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/resources/updated\",\n  \"params\": {\n    \"uri\": \"file:///project/src/main.rs\"\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:7e466794a8cd5e6882421707e59527d337309b1009e0aa85d96e2339055420e9",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 10,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#message-flow",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Message Flow",
+              "slug": "message-flow"
+            }
+          ],
+          "markdown": "## Message Flow\n\n```mermaid theme={null}\nsequenceDiagram\n    participant Client\n    participant Server\n\n    Note over Client,Server: Resource Discovery\n    Client->>Server: resources/list\n    Server-->>Client: List of resources\n\n    Note over Client,Server: Resource Template Discovery\n    Client->>Server: resources/templates/list\n    Server-->>Client: List of resource templates\n\n    Note over Client,Server: Resource Access\n    Client->>Server: resources/read\n    Server-->>Client: Resource contents\n\n    Note over Client,Server: Subscriptions\n    Client->>Server: resources/subscribe\n    Server-->>Client: Subscription confirmed\n\n    Note over Client,Server: Updates\n    Server--)Client: notifications/resources/updated\n    Client->>Server: resources/read\n    Server-->>Client: Updated contents\n```\n",
+          "contentHash": "3a56ab5da13d883a6d02c90d6b4c0f09bf317d34172ca975eaabbc679e740e0a",
+          "codeExamples": [
+            {
+              "language": "mermaid",
+              "code": "sequenceDiagram\n    participant Client\n    participant Server\n\n    Note over Client,Server: Resource Discovery\n    Client->>Server: resources/list\n    Server-->>Client: List of resources\n\n    Note over Client,Server: Resource Template Discovery\n    Client->>Server: resources/templates/list\n    Server-->>Client: List of resource templates\n\n    Note over Client,Server: Resource Access\n    Client->>Server: resources/read\n    Server-->>Client: Resource contents\n\n    Note over Client,Server: Subscriptions\n    Client->>Server: resources/subscribe\n    Server-->>Client: Subscription confirmed\n\n    Note over Client,Server: Updates\n    Server--)Client: notifications/resources/updated\n    Client->>Server: resources/read\n    Server-->>Client: Updated contents"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:0bb50bd272e99b94ee582210ec29f1f9b62adcf16b091a45dfbb343a6431c313",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 11,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#data-types",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            }
+          ],
+          "markdown": "## Data Types\n",
+          "contentHash": "d5ee889e768e5e60ca748f84b751c6c2732aeae61e48a29b7621e9fd7d0144e0",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:0b7aeb7ce97fea9b2da24ff04b6a520a4d0616146715a15c550a44f22772e435",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 12,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#resource",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Resource",
+              "slug": "resource"
+            }
+          ],
+          "markdown": "### Resource\n\nA resource definition includes:\n\n- `uri`: Unique identifier for the resource\n- `name`: The name of the resource.\n- `title`: Optional human-readable name of the resource for display purposes.\n- `description`: Optional description\n- `icons`: Optional array of icons for display in user interfaces\n- `mimeType`: Optional MIME type\n- `size`: Optional size in bytes\n",
+          "contentHash": "3f762774afa57c31dbf14059c00f2b2ce1b3c6b24f5d0df11edc47d221d679b8",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:78a4934ca0e2c3de4e445a8bf0d0a4d46e4b9fd55a58a23bfdd8f9e24284ea85",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 13,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#resource-contents",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Resource Contents",
+              "slug": "resource-contents"
+            }
+          ],
+          "markdown": "### Resource Contents\n\nResources can contain either text or binary data:\n",
+          "contentHash": "cf731b93162081a436dcbad4ad6e0ebb411e40f6dc3167d580900c5fc276aed6",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:614082b6313f148cf2f03cd9d7850b02fa7cd8b87d8f07f237b7f53a7647e5b0",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 14,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#text-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Resource Contents",
+              "slug": "resource-contents"
+            },
+            {
+              "level": 4,
+              "title": "Text Content",
+              "slug": "text-content"
+            }
+          ],
+          "markdown": "#### Text Content\n\n```json theme={null}\n{\n  \"uri\": \"file:///example.txt\",\n  \"mimeType\": \"text/plain\",\n  \"text\": \"Resource content\"\n}\n```\n",
+          "contentHash": "260e29816d083ea7b41e0cb96cf084ed35276e5d9bac1bbd15de84de5442169e",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"uri\": \"file:///example.txt\",\n  \"mimeType\": \"text/plain\",\n  \"text\": \"Resource content\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:4c4dc18ae1086fead8e8a1b719a0a0866883f701d4d1b674871108321770ccbc",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 15,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#binary-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Resource Contents",
+              "slug": "resource-contents"
+            },
+            {
+              "level": 4,
+              "title": "Binary Content",
+              "slug": "binary-content"
+            }
+          ],
+          "markdown": "#### Binary Content\n\n```json theme={null}\n{\n  \"uri\": \"file:///example.png\",\n  \"mimeType\": \"image/png\",\n  \"blob\": \"base64-encoded-data\"\n}\n```\n",
+          "contentHash": "f7659e215e9a5f1d322f22a6adf58a9d5719457b80f4765536cde168715ac16f",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"uri\": \"file:///example.png\",\n  \"mimeType\": \"image/png\",\n  \"blob\": \"base64-encoded-data\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:2fcc1ed6d125924f93a9fdc0c08ec7ae1eaa071b097d871100288232d1986232",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 16,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#annotations",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Annotations",
+              "slug": "annotations"
+            }
+          ],
+          "markdown": "### Annotations\n\nResources, resource templates and content blocks support optional annotations that provide hints to clients about how to use or display the resource:\n\n- **`audience`**: An array indicating the intended audience(s) for this resource. Valid values are `\"user\"` and `\"assistant\"`. For example, `[\"user\", \"assistant\"]` indicates content useful for both.\n- **`priority`**: A number from 0.0 to 1.0 indicating the importance of this resource. A value of 1 means \"most important\" (effectively required), while 0 means \"least important\" (entirely optional).\n- **`lastModified`**: An ISO 8601 formatted timestamp indicating when the resource was last modified (e.g., `\"2025-01-12T15:00:58Z\"`).\n\nExample resource with annotations:\n\n```json theme={null}\n{\n  \"uri\": \"file:///project/README.md\",\n  \"name\": \"README.md\",\n  \"title\": \"Project Documentation\",\n  \"mimeType\": \"text/markdown\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.8,\n    \"lastModified\": \"2025-01-12T15:00:58Z\"\n  }\n}\n```\n\nClients can use these annotations to:\n\n- Filter resources based on their intended audience\n- Prioritize which resources to include in context\n- Display modification times or sort by recency\n",
+          "contentHash": "6cdd179b1e46dfc11d82e3d93373e9bef4c62f048d1be5bf5f5cae1d43894ce9",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"uri\": \"file:///project/README.md\",\n  \"name\": \"README.md\",\n  \"title\": \"Project Documentation\",\n  \"mimeType\": \"text/markdown\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.8,\n    \"lastModified\": \"2025-01-12T15:00:58Z\"\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:98aac5662c0fc6e480bd888fc588f92f853e933f3f25588e16b25f399a00200c",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 17,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#common-uri-schemes",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Common URI Schemes",
+              "slug": "common-uri-schemes"
+            }
+          ],
+          "markdown": "## Common URI Schemes\n\nThe protocol defines several standard URI schemes. This list not\nexhaustive—implementations are always free to use additional, custom URI schemes.\n",
+          "contentHash": "2414061eb29c4e1dc7a152ba21fb75c4f9ef1baab10bb284f466b3ecb148d28b",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:d75d954a2103bebea73c23f8fbde3021700c5ab93c37ef4af56826708435dd0f",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 18,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#https",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Common URI Schemes",
+              "slug": "common-uri-schemes"
+            },
+            {
+              "level": 3,
+              "title": "https://",
+              "slug": "https"
+            }
+          ],
+          "markdown": "### https\\://\n\nUsed to represent a resource available on the web.\n\nServers **SHOULD** use this scheme only when the client is able to fetch and load the\nresource directly from the web on its own—that is, it doesn’t need to read the resource\nvia the MCP server.\n\nFor other use cases, servers **SHOULD** prefer to use another URI scheme, or define a\ncustom one, even if the server will itself be downloading resource contents over the\ninternet.\n",
+          "contentHash": "1f88a5e82643b8af720551e02ea759ae33597ea08579ac6ddd683651f6ece76d",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:bd466d39c498090f7ace79163f7ca05d3251e857b70b91a3b6adc626ede8301d",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 19,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#file",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Common URI Schemes",
+              "slug": "common-uri-schemes"
+            },
+            {
+              "level": 3,
+              "title": "file://",
+              "slug": "file"
+            }
+          ],
+          "markdown": "### file://\n\nUsed to identify resources that behave like a filesystem. However, the resources do not\nneed to map to an actual physical filesystem.\n\nMCP servers **MAY** identify file:// resources with an\n[XDG MIME type](https://specifications.freedesktop.org/shared-mime-info-spec/0.14/ar01s02.html#id-1.3.14),\nlike `inode/directory`, to represent non-regular files (such as directories) that don’t\notherwise have a standard MIME type.\n",
+          "contentHash": "25c797c57c013baeaf10ca1f0a2d502aec075859e59614aee0d8265768100c06",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:5447dace308004e1ee1979371101fa9a2eb82278cbbc0c1e7a1333115a4f35fd",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 20,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#git",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Common URI Schemes",
+              "slug": "common-uri-schemes"
+            },
+            {
+              "level": 3,
+              "title": "git://",
+              "slug": "git"
+            }
+          ],
+          "markdown": "### git://\n\nGit version control integration.\n",
+          "contentHash": "f3691864a38fc475cabc797e288e4b389551f320eaf70e86cbc21e43f6e3f605",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:3925730e33483026c84f117d70940fee64f35eed9be134f6731717b9e9756f28",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 21,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#custom-uri-schemes",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Common URI Schemes",
+              "slug": "common-uri-schemes"
+            },
+            {
+              "level": 3,
+              "title": "Custom URI Schemes",
+              "slug": "custom-uri-schemes"
+            }
+          ],
+          "markdown": "### Custom URI Schemes\n\nCustom URI schemes **MUST** be in accordance with [RFC3986](https://datatracker.ietf.org/doc/html/rfc3986),\ntaking the above guidance in to account.\n",
+          "contentHash": "82df84dd3cff8e53e206673b3b79452dd75f578c5d6912a0981976b0c3d408cd",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:7d1549966c9b0ea1c38f4c856eff6449ccc8795ab49b05345ae40ef89db176ae",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 22,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#error-handling",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Error Handling",
+              "slug": "error-handling"
+            }
+          ],
+          "markdown": "## Error Handling\n\nServers **SHOULD** return standard JSON-RPC errors for common failure cases:\n\n- Resource not found: `-32002`\n- Internal errors: `-32603`\n\nExample error:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"error\": {\n    \"code\": -32002,\n    \"message\": \"Resource not found\",\n    \"data\": {\n      \"uri\": \"file:///nonexistent.txt\"\n    }\n  }\n}\n```\n",
+          "contentHash": "c4178798f45a8315684b16eaef819e089124e4bf1430797ed378d5b0b4d39f84",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"error\": {\n    \"code\": -32002,\n    \"message\": \"Resource not found\",\n    \"data\": {\n      \"uri\": \"file:///nonexistent.txt\"\n    }\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854:6f68efba86de56b4aa8bbd4b1cf9e493ba4e4e84ddb680395e4592cf42d768a3",
+          "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854",
+          "index": 23,
+          "title": "Resources",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources#security-considerations",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Resources",
+              "slug": "resources"
+            },
+            {
+              "level": 2,
+              "title": "Security Considerations",
+              "slug": "security-considerations"
+            }
+          ],
+          "markdown": "## Security Considerations\n\n1. Servers **MUST** validate all resource URIs\n2. Access controls **SHOULD** be implemented for sensitive resources\n3. Binary data **MUST** be properly encoded\n4. Resource permissions **SHOULD** be checked before operations\n\nThis documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.\n",
+          "contentHash": "0b6de2ad172e2d37b40b8c8a21c2d588d5023eda89096fde667e2f3504dd6bdc",
+          "codeExamples": [],
+          "references": []
+        }
+      ]
+    },
+    {
+      "id": "mcp-spec:v2025-11-25:1e0c04c1e32365ca0ed052c2453ad5e6f49f273131f7466bbaff11af2377ea0d",
+      "version": "2025-11-25",
+      "title": "ToolAnnotations",
+      "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/schema",
+      "source": {
+        "provenance": {
+          "kind": "git",
+          "repository": "https://github.com/modelcontextprotocol/modelcontextprotocol",
+          "ref": "2025-11-25",
+          "revision": "2025-11-25"
+        },
+        "path": "tool-annotations-schema.md",
+        "location": "https://modelcontextprotocol.io/specification/2025-11-25/schema",
+        "contentHash": "d4c2a6fe57d240a4d6e945fd1692ab8bef6d8fca2b2c0b20fb97ed17bf5d0ded"
+      },
+      "markdown": "### `ToolAnnotations`\n\n```typescript\ninterface ToolAnnotations {\n  title?: string;\n  readOnlyHint?: boolean;\n  destructiveHint?: boolean;\n  idempotentHint?: boolean;\n  openWorldHint?: boolean;\n}\n```\n\nAdditional properties describing a Tool to clients. All properties in\n`ToolAnnotations` are hints. They are not guaranteed to provide a faithful\ndescription of tool behavior, including descriptive properties such as `title`.\nClients should never make tool use decisions based on `ToolAnnotations` received\nfrom untrusted servers.\n\nThis field reference is excerpted from the official\n[2025-11-25 schema reference](https://modelcontextprotocol.io/specification/2025-11-25/schema.md#toolannotations).\n\n- `title?: string`: A human-readable title for the tool.\n- `readOnlyHint?: boolean`: If true, the tool does not modify its environment.\n  Default: `false`.\n- `destructiveHint?: boolean`: If true, the tool may perform destructive\n  updates to its environment. If false, the tool performs only additive\n  updates. This property is meaningful only when `readOnlyHint == false`.\n  Default: `true`.\n- `idempotentHint?: boolean`: If true, calling the tool repeatedly with the\n  same arguments will have no additional effect on its environment. This\n  property is meaningful only when `readOnlyHint == false`. Default: `false`.\n- `openWorldHint?: boolean`: If true, the tool may interact with an open world\n  of external entities. If false, its domain of interaction is closed. For\n  example, the world of a web search tool is open, while that of a memory tool\n  is not. Default: `true`.\n",
+      "contentHash": "d4c2a6fe57d240a4d6e945fd1692ab8bef6d8fca2b2c0b20fb97ed17bf5d0ded",
+      "headings": [
+        {
+          "level": 3,
+          "title": "ToolAnnotations",
+          "slug": "toolannotations"
+        }
+      ],
+      "chunks": [
+        {
+          "id": "mcp-spec:v2025-11-25:1e0c04c1e32365ca0ed052c2453ad5e6f49f273131f7466bbaff11af2377ea0d:cd94df4d9f77dc3065a6b1cc77edf2142811405c77585182d68042e359a6e87d",
+          "documentId": "mcp-spec:v2025-11-25:1e0c04c1e32365ca0ed052c2453ad5e6f49f273131f7466bbaff11af2377ea0d",
+          "index": 0,
+          "title": "ToolAnnotations",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/schema#toolannotations",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 3,
+              "title": "ToolAnnotations",
+              "slug": "toolannotations"
+            }
+          ],
+          "markdown": "### `ToolAnnotations`\n\n```typescript\ninterface ToolAnnotations {\n  title?: string;\n  readOnlyHint?: boolean;\n  destructiveHint?: boolean;\n  idempotentHint?: boolean;\n  openWorldHint?: boolean;\n}\n```\n\nAdditional properties describing a Tool to clients. All properties in\n`ToolAnnotations` are hints. They are not guaranteed to provide a faithful\ndescription of tool behavior, including descriptive properties such as `title`.\nClients should never make tool use decisions based on `ToolAnnotations` received\nfrom untrusted servers.\n\nThis field reference is excerpted from the official\n[2025-11-25 schema reference](https://modelcontextprotocol.io/specification/2025-11-25/schema.md#toolannotations).\n\n- `title?: string`: A human-readable title for the tool.\n- `readOnlyHint?: boolean`: If true, the tool does not modify its environment.\n  Default: `false`.\n- `destructiveHint?: boolean`: If true, the tool may perform destructive\n  updates to its environment. If false, the tool performs only additive\n  updates. This property is meaningful only when `readOnlyHint == false`.\n  Default: `true`.\n- `idempotentHint?: boolean`: If true, calling the tool repeatedly with the\n  same arguments will have no additional effect on its environment. This\n  property is meaningful only when `readOnlyHint == false`. Default: `false`.\n- `openWorldHint?: boolean`: If true, the tool may interact with an open world\n  of external entities. If false, its domain of interaction is closed. For\n  example, the world of a web search tool is open, while that of a memory tool\n  is not. Default: `true`.\n",
+          "contentHash": "d4c2a6fe57d240a4d6e945fd1692ab8bef6d8fca2b2c0b20fb97ed17bf5d0ded",
+          "codeExamples": [
+            {
+              "language": "typescript",
+              "code": "interface ToolAnnotations {\n  title?: string;\n  readOnlyHint?: boolean;\n  destructiveHint?: boolean;\n  idempotentHint?: boolean;\n  openWorldHint?: boolean;\n}"
+            }
+          ],
+          "references": []
+        }
+      ]
+    },
+    {
       "id": "mcp-spec:v2025-11-25:889600b9b333133bec391930b51ef705e6ccbc4f5db3be7c685fa92a971f92ec",
       "version": "2025-11-25",
       "title": "Tools, resources, and prompts",
@@ -357,6 +1270,1014 @@
           ],
           "markdown": "## Prompts\n\nPrompts are reusable templates with named arguments. Clients can discover them and request a rendered prompt for a particular use. They help a server offer task-specific guidance without conflating that guidance with a tool call or resource read.\n\nFeature availability depends on the capabilities negotiated for the connection. Refer to the official [tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools), [resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources), and [prompts](https://modelcontextprotocol.io/specification/2025-11-25/server/prompts) sections for the normative definitions.\n",
           "contentHash": "2da6d7f2d4405dc87809ed51930841784eb6af09cc05e1a0a3992c314262bab4",
+          "codeExamples": [],
+          "references": [
+            {
+              "href": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+              "startOffset": 362,
+              "endOffset": 440,
+              "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6"
+            },
+            {
+              "href": "https://modelcontextprotocol.io/specification/2025-11-25/server/resources",
+              "startOffset": 442,
+              "endOffset": 528,
+              "documentId": "mcp-spec:v2025-11-25:ef8804de2bf8482ed4859e6ac315da9b3f71c1ddaf291b549a94170c0eb96854"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+      "version": "2025-11-25",
+      "title": "Tools",
+      "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+      "source": {
+        "provenance": {
+          "kind": "git",
+          "repository": "https://github.com/modelcontextprotocol/modelcontextprotocol",
+          "ref": "2025-11-25",
+          "revision": "2025-11-25"
+        },
+        "path": "tools.md",
+        "location": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+        "contentHash": "5cce26af0d9a0ebfb854f3241d3f5a2cdde95a6d2dc07aaedf82001244aaea52"
+      },
+      "markdown": "> ## Documentation Index\n>\n> Fetch the complete documentation index at: https://modelcontextprotocol.io/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# Tools\n\nThe Model Context Protocol (MCP) allows servers to expose tools that can be invoked by\nlanguage models. Tools enable models to interact with external systems, such as querying\ndatabases, calling APIs, or performing computations. Each tool is uniquely identified by\na name and includes metadata describing its schema.\n\n## User Interaction Model\n\nTools in MCP are designed to be **model-controlled**, meaning that the language model can\ndiscover and invoke tools automatically based on its contextual understanding and the\nuser's prompts.\n\nHowever, implementations are free to expose tools through any interface pattern that\nsuits their needs—the protocol itself does not mandate any specific user\ninteraction model.\n\n> [!WARNING]\n>\n> For trust & safety and security, there **SHOULD** always\n> be a human in the loop with the ability to deny tool invocations.\n>\n> Applications **SHOULD**:\n>\n> - Provide UI that makes clear which tools are being exposed to the AI model\n> - Insert clear visual indicators when tools are invoked\n> - Present confirmation prompts to the user for operations, to ensure a human is in the\n>   loop\n\n## Capabilities\n\nServers that support tools **MUST** declare the `tools` capability:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"tools\": {\n      \"listChanged\": true\n    }\n  }\n}\n```\n\n`listChanged` indicates whether the server will emit notifications when the list of\navailable tools changes.\n\n## Protocol Messages\n\n### Listing Tools\n\nTo discover available tools, clients send a `tools/list` request. This operation supports\n[pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"tools\": [\n      {\n        \"name\": \"get_weather\",\n        \"title\": \"Weather Information Provider\",\n        \"description\": \"Get current weather information for a location\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"location\": {\n              \"type\": \"string\",\n              \"description\": \"City name or zip code\"\n            }\n          },\n          \"required\": [\"location\"]\n        },\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/weather-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ],\n        \"execution\": {\n          \"taskSupport\": \"optional\"\n        }\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}\n```\n\n### Calling Tools\n\nTo invoke a tool, clients send a `tools/call` request:\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_weather\",\n    \"arguments\": {\n      \"location\": \"New York\"\n    }\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Current weather in New York:\\nTemperature: 72°F\\nConditions: Partly cloudy\"\n      }\n    ],\n    \"isError\": false\n  }\n}\n```\n\n### List Changed Notification\n\nWhen the list of available tools changes, servers that declared the `listChanged`\ncapability **SHOULD** send a notification:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/tools/list_changed\"\n}\n```\n\n## Message Flow\n\n```mermaid theme={null}\nsequenceDiagram\n    participant LLM\n    participant Client\n    participant Server\n\n    Note over Client,Server: Discovery\n    Client->>Server: tools/list\n    Server-->>Client: List of tools\n\n    Note over Client,LLM: Tool Selection\n    LLM->>Client: Select tool to use\n\n    Note over Client,Server: Invocation\n    Client->>Server: tools/call\n    Server-->>Client: Tool result\n    Client->>LLM: Process result\n\n    Note over Client,Server: Updates\n    Server--)Client: tools/list_changed\n    Client->>Server: tools/list\n    Server-->>Client: Updated tools\n```\n\n## Data Types\n\n### Tool\n\nA tool definition includes:\n\n- `name`: Unique identifier for the tool\n- `title`: Optional human-readable name of the tool for display purposes.\n- `description`: Human-readable description of functionality\n- `icons`: Optional array of icons for display in user interfaces\n- `inputSchema`: JSON Schema defining expected parameters\n  - Follows the [JSON Schema usage guidelines](https://modelcontextprotocol.io/specification/2025-11-25/basic.md#json-schema-usage)\n  - Defaults to 2020-12 if no `$schema` field is present\n  - **MUST** be a valid JSON Schema object (not `null`)\n  - For tools with no parameters, use one of these valid approaches:\n    - `{ \"type\": \"object\", \"additionalProperties\": false }` - **Recommended**: explicitly accepts only empty objects\n    - `{ \"type\": \"object\" }` - accepts any object (including with properties)\n- `outputSchema`: Optional JSON Schema defining expected output structure\n  - Follows the [JSON Schema usage guidelines](https://modelcontextprotocol.io/specification/2025-11-25/basic.md#json-schema-usage)\n  - Defaults to 2020-12 if no `$schema` field is present\n- `annotations`: Optional properties describing tool behavior\n- `execution`: Optional object describing execution-related properties\n  - `taskSupport`: Indicates whether this tool supports [task-augmented execution](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/tasks.md#tool-level-negotiation). Values: `\"forbidden\"` (default), `\"optional\"`, or `\"required\"`\n\n> [!WARNING]\n>\n> For trust & safety and security, clients **MUST** consider tool annotations to\n> be untrusted unless they come from trusted servers.\n\n#### Tool Names\n\n- Tool names **SHOULD** be between 1 and 128 characters in length (inclusive).\n- Tool names **SHOULD** be considered case-sensitive.\n- The following **SHOULD** be the only allowed characters: uppercase and lowercase ASCII letters (A-Z, a-z), digits\n  (0-9), underscore (\\_), hyphen (-), and dot (.)\n- Tool names **SHOULD NOT** contain spaces, commas, or other special characters.\n- Tool names **SHOULD** be unique within a server.\n- Example valid tool names:\n  - getUser\n  - DATA\\_EXPORT\\_v2\n  - admin.tools.list\n\n### Tool Result\n\nTool results may contain [**structured**](#structured-content) or **unstructured** content.\n\n**Unstructured** content is returned in the `content` field of a result, and can contain multiple content items of different types:\n\n> [!NOTE]\n>\n> All content types (text, image, audio, resource links, and embedded resources)\n> support optional\n> [annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) that\n> provide metadata about audience, priority, and modification times. This is the\n> same annotation format used by resources and prompts.\n\n#### Text Content\n\n```json theme={null}\n{\n  \"type\": \"text\",\n  \"text\": \"Tool result text\"\n}\n```\n\n#### Image Content\n\n```json theme={null}\n{\n  \"type\": \"image\",\n  \"data\": \"base64-encoded-data\",\n  \"mimeType\": \"image/png\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.9\n  }\n}\n```\n\n#### Audio Content\n\n```json theme={null}\n{\n  \"type\": \"audio\",\n  \"data\": \"base64-encoded-audio-data\",\n  \"mimeType\": \"audio/wav\"\n}\n```\n\n#### Resource Links\n\nA tool **MAY** return links to [Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md), to provide additional context\nor data. In this case, the tool will return a URI that can be subscribed to or fetched by the client:\n\n```json theme={null}\n{\n  \"type\": \"resource_link\",\n  \"uri\": \"file:///project/src/main.rs\",\n  \"name\": \"main.rs\",\n  \"description\": \"Primary application entry point\",\n  \"mimeType\": \"text/x-rust\"\n}\n```\n\nResource links support the same [Resource annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) as regular resources to help clients understand how to use them.\n\n> [!NOTE]\n>\n> Resource links returned by tools are not guaranteed to appear in the results\n> of a `resources/list` request.\n\n#### Embedded Resources\n\n[Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md) **MAY** be embedded to provide additional context\nor data using a suitable [URI scheme](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#common-uri-schemes). Servers that use embedded resources **SHOULD** implement the `resources` capability:\n\n```json theme={null}\n{\n  \"type\": \"resource\",\n  \"resource\": {\n    \"uri\": \"file:///project/src/main.rs\",\n    \"mimeType\": \"text/x-rust\",\n    \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n  },\n  \"annotations\": {\n    \"audience\": [\"user\", \"assistant\"],\n    \"priority\": 0.7,\n    \"lastModified\": \"2025-05-03T14:30:00Z\"\n  }\n}\n```\n\nEmbedded resources support the same [Resource annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) as regular resources to help clients understand how to use them.\n\n#### Structured Content\n\n**Structured** content is returned as a JSON object in the `structuredContent` field of a result.\n\nFor backwards compatibility, a tool that returns structured content SHOULD also return the serialized JSON in a TextContent block.\n\n> [!NOTE]\n>\n> `structuredContent` is server-produced result data and is unrelated to LLM\n> \"structured outputs\" (schema-constrained model generation).\n\n#### Output Schema\n\nTools may also provide an output schema for validation of structured results.\nIf an output schema is provided:\n\n- Servers **MUST** provide structured results that conform to this schema.\n- Clients **SHOULD** validate structured results against this schema.\n\nExample tool with output schema:\n\n```json theme={null}\n{\n  \"name\": \"get_weather_data\",\n  \"title\": \"Weather Data Retriever\",\n  \"description\": \"Get current weather data for a location\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"location\": {\n        \"type\": \"string\",\n        \"description\": \"City name or zip code\"\n      }\n    },\n    \"required\": [\"location\"]\n  },\n  \"outputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"temperature\": {\n        \"type\": \"number\",\n        \"description\": \"Temperature in celsius\"\n      },\n      \"conditions\": {\n        \"type\": \"string\",\n        \"description\": \"Weather conditions description\"\n      },\n      \"humidity\": {\n        \"type\": \"number\",\n        \"description\": \"Humidity percentage\"\n      }\n    },\n    \"required\": [\"temperature\", \"conditions\", \"humidity\"]\n  }\n}\n```\n\nExample valid response for this tool:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"temperature\\\": 22.5, \\\"conditions\\\": \\\"Partly cloudy\\\", \\\"humidity\\\": 65}\"\n      }\n    ],\n    \"structuredContent\": {\n      \"temperature\": 22.5,\n      \"conditions\": \"Partly cloudy\",\n      \"humidity\": 65\n    }\n  }\n}\n```\n\nProviding an output schema helps clients and LLMs understand and properly handle structured tool outputs by:\n\n- Enabling strict schema validation of responses\n- Providing type information for better integration with programming languages\n- Guiding clients and LLMs to properly parse and utilize the returned data\n- Supporting better documentation and developer experience\n\n### Schema Examples\n\n#### Tool with default 2020-12 schema:\n\n```json theme={null}\n{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}\n```\n\n#### Tool with explicit draft-07 schema:\n\n```json theme={null}\n{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}\n```\n\n#### Tool with no parameters:\n\n```json theme={null}\n{\n  \"name\": \"get_current_time\",\n  \"description\": \"Returns the current server time\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"additionalProperties\": false\n  }\n}\n```\n\n## Error Handling\n\nTools use two error reporting mechanisms:\n\n1. **Protocol Errors**: Standard JSON-RPC errors for issues like:\n   - Unknown tools\n   - Malformed requests (requests that fail to satisfy [CallToolRequest schema](https://modelcontextprotocol.io/specification/2025-11-25/schema.md#calltoolrequest))\n   - Server errors\n\n2. **Tool Execution Errors**: Reported in tool results with `isError: true`:\n   - API failures\n   - Input validation errors (e.g., date in wrong format, value out of range)\n   - Business logic errors\n\n**Tool Execution Errors** contain actionable feedback that language models can use to self-correct and retry with adjusted parameters.\n**Protocol Errors** indicate issues with the request structure itself that models are less likely to be able to fix.\nClients **SHOULD** provide tool execution errors to language models to enable self-correction.\nClients **MAY** provide protocol errors to language models, though these are less likely to result in successful recovery.\n\nExample protocol error:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"error\": {\n    \"code\": -32602,\n    \"message\": \"Unknown tool: invalid_tool_name\"\n  }\n}\n```\n\nExample tool execution error (input validation):\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Invalid departure date: must be in the future. Current date is 08/08/2025.\"\n      }\n    ],\n    \"isError\": true\n  }\n}\n```\n\n## Security Considerations\n\n1. Servers **MUST**:\n   - Validate all tool inputs\n   - Implement proper access controls\n   - Rate limit tool invocations\n   - Sanitize tool outputs\n\n2. Clients **SHOULD**:\n   - Prompt for user confirmation on sensitive operations\n   - Show tool inputs to the user before calling the server, to avoid malicious or\n     accidental data exfiltration\n   - Validate tool results before passing to LLM\n   - Implement timeouts for tool calls\n   - Log tool usage for audit purposes\n\nThis documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.\n",
+      "contentHash": "5cce26af0d9a0ebfb854f3241d3f5a2cdde95a6d2dc07aaedf82001244aaea52",
+      "headings": [
+        {
+          "level": 1,
+          "title": "Tools",
+          "slug": "tools"
+        },
+        {
+          "level": 2,
+          "title": "User Interaction Model",
+          "slug": "user-interaction-model"
+        },
+        {
+          "level": 2,
+          "title": "Capabilities",
+          "slug": "capabilities"
+        },
+        {
+          "level": 2,
+          "title": "Protocol Messages",
+          "slug": "protocol-messages"
+        },
+        {
+          "level": 3,
+          "title": "Listing Tools",
+          "slug": "listing-tools"
+        },
+        {
+          "level": 3,
+          "title": "Calling Tools",
+          "slug": "calling-tools"
+        },
+        {
+          "level": 3,
+          "title": "List Changed Notification",
+          "slug": "list-changed-notification"
+        },
+        {
+          "level": 2,
+          "title": "Message Flow",
+          "slug": "message-flow"
+        },
+        {
+          "level": 2,
+          "title": "Data Types",
+          "slug": "data-types"
+        },
+        {
+          "level": 3,
+          "title": "Tool",
+          "slug": "tool"
+        },
+        {
+          "level": 4,
+          "title": "Tool Names",
+          "slug": "tool-names"
+        },
+        {
+          "level": 3,
+          "title": "Tool Result",
+          "slug": "tool-result"
+        },
+        {
+          "level": 4,
+          "title": "Text Content",
+          "slug": "text-content"
+        },
+        {
+          "level": 4,
+          "title": "Image Content",
+          "slug": "image-content"
+        },
+        {
+          "level": 4,
+          "title": "Audio Content",
+          "slug": "audio-content"
+        },
+        {
+          "level": 4,
+          "title": "Resource Links",
+          "slug": "resource-links"
+        },
+        {
+          "level": 4,
+          "title": "Embedded Resources",
+          "slug": "embedded-resources"
+        },
+        {
+          "level": 4,
+          "title": "Structured Content",
+          "slug": "structured-content"
+        },
+        {
+          "level": 4,
+          "title": "Output Schema",
+          "slug": "output-schema"
+        },
+        {
+          "level": 3,
+          "title": "Schema Examples",
+          "slug": "schema-examples"
+        },
+        {
+          "level": 4,
+          "title": "Tool with default 2020-12 schema:",
+          "slug": "tool-with-default-2020-12-schema"
+        },
+        {
+          "level": 4,
+          "title": "Tool with explicit draft-07 schema:",
+          "slug": "tool-with-explicit-draft-07-schema"
+        },
+        {
+          "level": 4,
+          "title": "Tool with no parameters:",
+          "slug": "tool-with-no-parameters"
+        },
+        {
+          "level": 2,
+          "title": "Error Handling",
+          "slug": "error-handling"
+        },
+        {
+          "level": 2,
+          "title": "Security Considerations",
+          "slug": "security-considerations"
+        }
+      ],
+      "chunks": [
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:d49583a539be656c492422aeb5d387962b11b3a1a3c7b2fd5032ea8ca3e53f36",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 0,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [],
+          "markdown": "> ## Documentation Index\n>\n> Fetch the complete documentation index at: https://modelcontextprotocol.io/llms.txt\n> Use this file to discover all available pages before exploring further.\n",
+          "contentHash": "774ed016905d86a20c74141502285a458397df1b990ccd85b157c1f8dabadb78",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:3f3f35eb78c8c8fb5ca69b997ac73cd085085a73521ad00eace510c1fcf34209",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 1,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tools",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            }
+          ],
+          "markdown": "# Tools\n\nThe Model Context Protocol (MCP) allows servers to expose tools that can be invoked by\nlanguage models. Tools enable models to interact with external systems, such as querying\ndatabases, calling APIs, or performing computations. Each tool is uniquely identified by\na name and includes metadata describing its schema.\n",
+          "contentHash": "504995e7457f5997b12677cce431accebc0b606d597b7822553486df2fcbbc04",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:0ff21b5562c1783cc83f3af368cb09829f36b6ca99587d777c8b278b3c6ef6b6",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 2,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#user-interaction-model",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "User Interaction Model",
+              "slug": "user-interaction-model"
+            }
+          ],
+          "markdown": "## User Interaction Model\n\nTools in MCP are designed to be **model-controlled**, meaning that the language model can\ndiscover and invoke tools automatically based on its contextual understanding and the\nuser's prompts.\n\nHowever, implementations are free to expose tools through any interface pattern that\nsuits their needs—the protocol itself does not mandate any specific user\ninteraction model.\n\n> [!WARNING]\n>\n> For trust & safety and security, there **SHOULD** always\n> be a human in the loop with the ability to deny tool invocations.\n>\n> Applications **SHOULD**:\n>\n> - Provide UI that makes clear which tools are being exposed to the AI model\n> - Insert clear visual indicators when tools are invoked\n> - Present confirmation prompts to the user for operations, to ensure a human is in the\n>   loop\n",
+          "contentHash": "95bc2563e5960b199c8bfe659899dd7c88f2e6bcdbf89797071739be43007454",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:b44e271e747b5e5c135ae315fda43cee4b577b8311fba37694db461e2d95baab",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 3,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#capabilities",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Capabilities",
+              "slug": "capabilities"
+            }
+          ],
+          "markdown": "## Capabilities\n\nServers that support tools **MUST** declare the `tools` capability:\n\n```json theme={null}\n{\n  \"capabilities\": {\n    \"tools\": {\n      \"listChanged\": true\n    }\n  }\n}\n```\n\n`listChanged` indicates whether the server will emit notifications when the list of\navailable tools changes.\n",
+          "contentHash": "bab9734a12744a6935ce28dcca36b203362ac42d6c918735024559b39a66dcd2",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"capabilities\": {\n    \"tools\": {\n      \"listChanged\": true\n    }\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:e97a724a3f067607a1bdf787b97b8e08dd60099ee2e9683a6362e02395079df0",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 4,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#protocol-messages",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            }
+          ],
+          "markdown": "## Protocol Messages\n",
+          "contentHash": "657595b64fd805a1a1e785e992dfd92f6a42a4889614d994340a6e32b7f6dcc8",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:7d855ff9bc63ca9ea1a129d8f2362bde5d53086cb88a6f3d74e6b048169bae9a",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 5,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#listing-tools",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Listing Tools",
+              "slug": "listing-tools"
+            }
+          ],
+          "markdown": "### Listing Tools\n\nTo discover available tools, clients send a `tools/list` request. This operation supports\n[pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination.md).\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"tools\": [\n      {\n        \"name\": \"get_weather\",\n        \"title\": \"Weather Information Provider\",\n        \"description\": \"Get current weather information for a location\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"location\": {\n              \"type\": \"string\",\n              \"description\": \"City name or zip code\"\n            }\n          },\n          \"required\": [\"location\"]\n        },\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/weather-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ],\n        \"execution\": {\n          \"taskSupport\": \"optional\"\n        }\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}\n```\n",
+          "contentHash": "424512aa9b8d74effc513cf45462b18dc59dfc2d2b1b4b63d75c4e6fa350d174",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/list\",\n  \"params\": {\n    \"cursor\": \"optional-cursor-value\"\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"result\": {\n    \"tools\": [\n      {\n        \"name\": \"get_weather\",\n        \"title\": \"Weather Information Provider\",\n        \"description\": \"Get current weather information for a location\",\n        \"inputSchema\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"location\": {\n              \"type\": \"string\",\n              \"description\": \"City name or zip code\"\n            }\n          },\n          \"required\": [\"location\"]\n        },\n        \"icons\": [\n          {\n            \"src\": \"https://example.com/weather-icon.png\",\n            \"mimeType\": \"image/png\",\n            \"sizes\": [\"48x48\"]\n          }\n        ],\n        \"execution\": {\n          \"taskSupport\": \"optional\"\n        }\n      }\n    ],\n    \"nextCursor\": \"next-page-cursor\"\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:422161929c42a3db594726961de880f9a244054f954e43a46985529873e63d4d",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 6,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#calling-tools",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "Calling Tools",
+              "slug": "calling-tools"
+            }
+          ],
+          "markdown": "### Calling Tools\n\nTo invoke a tool, clients send a `tools/call` request:\n\n**Request:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_weather\",\n    \"arguments\": {\n      \"location\": \"New York\"\n    }\n  }\n}\n```\n\n**Response:**\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Current weather in New York:\\nTemperature: 72°F\\nConditions: Partly cloudy\"\n      }\n    ],\n    \"isError\": false\n  }\n}\n```\n",
+          "contentHash": "d70af642df1fcea74517196f8115040f6d5a29f1f18272d9d73e53bd5907e60c",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_weather\",\n    \"arguments\": {\n      \"location\": \"New York\"\n    }\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Current weather in New York:\\nTemperature: 72°F\\nConditions: Partly cloudy\"\n      }\n    ],\n    \"isError\": false\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:6ab3d71671df721230a90a7a3442fa9331879e96ded68e4b14660ecc991fbb15",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 7,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#list-changed-notification",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Protocol Messages",
+              "slug": "protocol-messages"
+            },
+            {
+              "level": 3,
+              "title": "List Changed Notification",
+              "slug": "list-changed-notification"
+            }
+          ],
+          "markdown": "### List Changed Notification\n\nWhen the list of available tools changes, servers that declared the `listChanged`\ncapability **SHOULD** send a notification:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/tools/list_changed\"\n}\n```\n",
+          "contentHash": "a0146f661200f291c27211abceddc895040306d083a7f7dda36413eac0d13d4c",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/tools/list_changed\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:77ec4f71a6066b0bd6a40929538325ad4aceadd046ddd2aa88b7b00792c43e81",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 8,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#message-flow",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Message Flow",
+              "slug": "message-flow"
+            }
+          ],
+          "markdown": "## Message Flow\n\n```mermaid theme={null}\nsequenceDiagram\n    participant LLM\n    participant Client\n    participant Server\n\n    Note over Client,Server: Discovery\n    Client->>Server: tools/list\n    Server-->>Client: List of tools\n\n    Note over Client,LLM: Tool Selection\n    LLM->>Client: Select tool to use\n\n    Note over Client,Server: Invocation\n    Client->>Server: tools/call\n    Server-->>Client: Tool result\n    Client->>LLM: Process result\n\n    Note over Client,Server: Updates\n    Server--)Client: tools/list_changed\n    Client->>Server: tools/list\n    Server-->>Client: Updated tools\n```\n",
+          "contentHash": "264e50f44cbffb0a52cb8c9cd859f496c3f11012964cb998298d60bf2e7eba86",
+          "codeExamples": [
+            {
+              "language": "mermaid",
+              "code": "sequenceDiagram\n    participant LLM\n    participant Client\n    participant Server\n\n    Note over Client,Server: Discovery\n    Client->>Server: tools/list\n    Server-->>Client: List of tools\n\n    Note over Client,LLM: Tool Selection\n    LLM->>Client: Select tool to use\n\n    Note over Client,Server: Invocation\n    Client->>Server: tools/call\n    Server-->>Client: Tool result\n    Client->>LLM: Process result\n\n    Note over Client,Server: Updates\n    Server--)Client: tools/list_changed\n    Client->>Server: tools/list\n    Server-->>Client: Updated tools"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:32b26edbde286b08b63649a5c73047ef1dad44d6d154f5c39108b0cf736d008c",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 9,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#data-types",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            }
+          ],
+          "markdown": "## Data Types\n",
+          "contentHash": "d5ee889e768e5e60ca748f84b751c6c2732aeae61e48a29b7621e9fd7d0144e0",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:c87b8ad77ed1a21e4d3c23b0d9a931153f8b9150e8f7478742c14f838ae09df2",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 10,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool",
+              "slug": "tool"
+            }
+          ],
+          "markdown": "### Tool\n\nA tool definition includes:\n\n- `name`: Unique identifier for the tool\n- `title`: Optional human-readable name of the tool for display purposes.\n- `description`: Human-readable description of functionality\n- `icons`: Optional array of icons for display in user interfaces\n- `inputSchema`: JSON Schema defining expected parameters\n  - Follows the [JSON Schema usage guidelines](https://modelcontextprotocol.io/specification/2025-11-25/basic.md#json-schema-usage)\n  - Defaults to 2020-12 if no `$schema` field is present\n  - **MUST** be a valid JSON Schema object (not `null`)\n  - For tools with no parameters, use one of these valid approaches:\n    - `{ \"type\": \"object\", \"additionalProperties\": false }` - **Recommended**: explicitly accepts only empty objects\n    - `{ \"type\": \"object\" }` - accepts any object (including with properties)\n- `outputSchema`: Optional JSON Schema defining expected output structure\n  - Follows the [JSON Schema usage guidelines](https://modelcontextprotocol.io/specification/2025-11-25/basic.md#json-schema-usage)\n  - Defaults to 2020-12 if no `$schema` field is present\n- `annotations`: Optional properties describing tool behavior\n- `execution`: Optional object describing execution-related properties\n  - `taskSupport`: Indicates whether this tool supports [task-augmented execution](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/tasks.md#tool-level-negotiation). Values: `\"forbidden\"` (default), `\"optional\"`, or `\"required\"`\n\n> [!WARNING]\n>\n> For trust & safety and security, clients **MUST** consider tool annotations to\n> be untrusted unless they come from trusted servers.\n",
+          "contentHash": "6c4224b65cf95a6e5710b274e761248777bcf40690440ac88211156261e79328",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:043a95a234e340b0083ebc2fbda134e28e5033a65045c48eaa2550e9ac92364e",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 11,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-names",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool",
+              "slug": "tool"
+            },
+            {
+              "level": 4,
+              "title": "Tool Names",
+              "slug": "tool-names"
+            }
+          ],
+          "markdown": "#### Tool Names\n\n- Tool names **SHOULD** be between 1 and 128 characters in length (inclusive).\n- Tool names **SHOULD** be considered case-sensitive.\n- The following **SHOULD** be the only allowed characters: uppercase and lowercase ASCII letters (A-Z, a-z), digits\n  (0-9), underscore (\\_), hyphen (-), and dot (.)\n- Tool names **SHOULD NOT** contain spaces, commas, or other special characters.\n- Tool names **SHOULD** be unique within a server.\n- Example valid tool names:\n  - getUser\n  - DATA\\_EXPORT\\_v2\n  - admin.tools.list\n",
+          "contentHash": "53e495246dbd772152b3276b05cf4b1387450e6cce59f6645212925f022cf828",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:55d19b945a1001344287416fe16f0606af6f6a1f2f465fd381a552d4d87f02b0",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 12,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-result",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            }
+          ],
+          "markdown": "### Tool Result\n\nTool results may contain [**structured**](#structured-content) or **unstructured** content.\n\n**Unstructured** content is returned in the `content` field of a result, and can contain multiple content items of different types:\n\n> [!NOTE]\n>\n> All content types (text, image, audio, resource links, and embedded resources)\n> support optional\n> [annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) that\n> provide metadata about audience, priority, and modification times. This is the\n> same annotation format used by resources and prompts.\n",
+          "contentHash": "15258be82fc8ca056a78b03c9e9397a0c2a74a39050d6b18f6b5e0624d80b81e",
+          "codeExamples": [],
+          "references": [
+            {
+              "href": "#structured-content",
+              "startOffset": 42,
+              "endOffset": 79,
+              "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+              "sectionId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:b591f4015e037a2473cafced1188384f83640a54d203382402571f9a57b71978"
+            }
+          ]
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:20fc96be11b7f79ca49fd2b6d45ccab8f1cc70b3b6406b7edbe6eff08a21ea43",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 13,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#text-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Text Content",
+              "slug": "text-content"
+            }
+          ],
+          "markdown": "#### Text Content\n\n```json theme={null}\n{\n  \"type\": \"text\",\n  \"text\": \"Tool result text\"\n}\n```\n",
+          "contentHash": "bed7182bf0400a7038ba9aaf5273d1dd0e3dcb9bc67c95807b6316dca6af8388",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"type\": \"text\",\n  \"text\": \"Tool result text\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:8def1427214d9045b53ee8b7fcca11aa2c7053db8c39c1ddae87c4bcff46e1d7",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 14,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#image-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Image Content",
+              "slug": "image-content"
+            }
+          ],
+          "markdown": "#### Image Content\n\n```json theme={null}\n{\n  \"type\": \"image\",\n  \"data\": \"base64-encoded-data\",\n  \"mimeType\": \"image/png\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.9\n  }\n}\n```\n",
+          "contentHash": "12fbd2db7f8768c2bbd36290cbb3910ff00820fcd184d31d6c6d155590023baf",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"type\": \"image\",\n  \"data\": \"base64-encoded-data\",\n  \"mimeType\": \"image/png\",\n  \"annotations\": {\n    \"audience\": [\"user\"],\n    \"priority\": 0.9\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:2dd6c3a00f0c618c1bff0c7e4213f3cff49fbff2ce4194bc980ec303535a17f9",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 15,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#audio-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Audio Content",
+              "slug": "audio-content"
+            }
+          ],
+          "markdown": "#### Audio Content\n\n```json theme={null}\n{\n  \"type\": \"audio\",\n  \"data\": \"base64-encoded-audio-data\",\n  \"mimeType\": \"audio/wav\"\n}\n```\n",
+          "contentHash": "1c4162f905938a231139f7ee231cd182a1ef8edcf4ee96279e6be114afe09f99",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"type\": \"audio\",\n  \"data\": \"base64-encoded-audio-data\",\n  \"mimeType\": \"audio/wav\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:35bfb90ebf3ffd38211b4765f657957575e9739b5387dbb1108cfe46d1a4c26c",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 16,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#resource-links",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Resource Links",
+              "slug": "resource-links"
+            }
+          ],
+          "markdown": "#### Resource Links\n\nA tool **MAY** return links to [Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md), to provide additional context\nor data. In this case, the tool will return a URI that can be subscribed to or fetched by the client:\n\n```json theme={null}\n{\n  \"type\": \"resource_link\",\n  \"uri\": \"file:///project/src/main.rs\",\n  \"name\": \"main.rs\",\n  \"description\": \"Primary application entry point\",\n  \"mimeType\": \"text/x-rust\"\n}\n```\n\nResource links support the same [Resource annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) as regular resources to help clients understand how to use them.\n\n> [!NOTE]\n>\n> Resource links returned by tools are not guaranteed to appear in the results\n> of a `resources/list` request.\n",
+          "contentHash": "d02df49dcd224d5e0be63f5dc49af0a2d8b9ab2ffcc368485dc41c0967497441",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"type\": \"resource_link\",\n  \"uri\": \"file:///project/src/main.rs\",\n  \"name\": \"main.rs\",\n  \"description\": \"Primary application entry point\",\n  \"mimeType\": \"text/x-rust\"\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:1f3f7b47c1a2eef1248bde50b25f0ded18879c82a4f3ef3a8a1271651dbd7de0",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 17,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#embedded-resources",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Embedded Resources",
+              "slug": "embedded-resources"
+            }
+          ],
+          "markdown": "#### Embedded Resources\n\n[Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md) **MAY** be embedded to provide additional context\nor data using a suitable [URI scheme](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#common-uri-schemes). Servers that use embedded resources **SHOULD** implement the `resources` capability:\n\n```json theme={null}\n{\n  \"type\": \"resource\",\n  \"resource\": {\n    \"uri\": \"file:///project/src/main.rs\",\n    \"mimeType\": \"text/x-rust\",\n    \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n  },\n  \"annotations\": {\n    \"audience\": [\"user\", \"assistant\"],\n    \"priority\": 0.7,\n    \"lastModified\": \"2025-05-03T14:30:00Z\"\n  }\n}\n```\n\nEmbedded resources support the same [Resource annotations](https://modelcontextprotocol.io/specification/2025-11-25/server/resources.md#annotations) as regular resources to help clients understand how to use them.\n",
+          "contentHash": "6502d71c1ef3f00ea4441297a7b6a3d3d4ead7a6cc401c3d1bf5c41d4a6dd8a7",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"type\": \"resource\",\n  \"resource\": {\n    \"uri\": \"file:///project/src/main.rs\",\n    \"mimeType\": \"text/x-rust\",\n    \"text\": \"fn main() {\\n    println!(\\\"Hello world!\\\");\\n}\"\n  },\n  \"annotations\": {\n    \"audience\": [\"user\", \"assistant\"],\n    \"priority\": 0.7,\n    \"lastModified\": \"2025-05-03T14:30:00Z\"\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:b591f4015e037a2473cafced1188384f83640a54d203382402571f9a57b71978",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 18,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#structured-content",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Structured Content",
+              "slug": "structured-content"
+            }
+          ],
+          "markdown": "#### Structured Content\n\n**Structured** content is returned as a JSON object in the `structuredContent` field of a result.\n\nFor backwards compatibility, a tool that returns structured content SHOULD also return the serialized JSON in a TextContent block.\n\n> [!NOTE]\n>\n> `structuredContent` is server-produced result data and is unrelated to LLM\n> \"structured outputs\" (schema-constrained model generation).\n",
+          "contentHash": "012d103c88d9e2b07884b2edbf8ed05fb7de5283eb6769d9443866f8bd316adb",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:0dbe335d035fb3abd818213dfffef7f14bb77e1215eee5e7ace249bbd27839af",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 19,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#output-schema",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Tool Result",
+              "slug": "tool-result"
+            },
+            {
+              "level": 4,
+              "title": "Output Schema",
+              "slug": "output-schema"
+            }
+          ],
+          "markdown": "#### Output Schema\n\nTools may also provide an output schema for validation of structured results.\nIf an output schema is provided:\n\n- Servers **MUST** provide structured results that conform to this schema.\n- Clients **SHOULD** validate structured results against this schema.\n\nExample tool with output schema:\n\n```json theme={null}\n{\n  \"name\": \"get_weather_data\",\n  \"title\": \"Weather Data Retriever\",\n  \"description\": \"Get current weather data for a location\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"location\": {\n        \"type\": \"string\",\n        \"description\": \"City name or zip code\"\n      }\n    },\n    \"required\": [\"location\"]\n  },\n  \"outputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"temperature\": {\n        \"type\": \"number\",\n        \"description\": \"Temperature in celsius\"\n      },\n      \"conditions\": {\n        \"type\": \"string\",\n        \"description\": \"Weather conditions description\"\n      },\n      \"humidity\": {\n        \"type\": \"number\",\n        \"description\": \"Humidity percentage\"\n      }\n    },\n    \"required\": [\"temperature\", \"conditions\", \"humidity\"]\n  }\n}\n```\n\nExample valid response for this tool:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"temperature\\\": 22.5, \\\"conditions\\\": \\\"Partly cloudy\\\", \\\"humidity\\\": 65}\"\n      }\n    ],\n    \"structuredContent\": {\n      \"temperature\": 22.5,\n      \"conditions\": \"Partly cloudy\",\n      \"humidity\": 65\n    }\n  }\n}\n```\n\nProviding an output schema helps clients and LLMs understand and properly handle structured tool outputs by:\n\n- Enabling strict schema validation of responses\n- Providing type information for better integration with programming languages\n- Guiding clients and LLMs to properly parse and utilize the returned data\n- Supporting better documentation and developer experience\n",
+          "contentHash": "d162f10ffd00bcc36bb9972eb6cccdfac8d45e67f53dcbfb490949062667e312",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"name\": \"get_weather_data\",\n  \"title\": \"Weather Data Retriever\",\n  \"description\": \"Get current weather data for a location\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"location\": {\n        \"type\": \"string\",\n        \"description\": \"City name or zip code\"\n      }\n    },\n    \"required\": [\"location\"]\n  },\n  \"outputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"temperature\": {\n        \"type\": \"number\",\n        \"description\": \"Temperature in celsius\"\n      },\n      \"conditions\": {\n        \"type\": \"string\",\n        \"description\": \"Weather conditions description\"\n      },\n      \"humidity\": {\n        \"type\": \"number\",\n        \"description\": \"Humidity percentage\"\n      }\n    },\n    \"required\": [\"temperature\", \"conditions\", \"humidity\"]\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"temperature\\\": 22.5, \\\"conditions\\\": \\\"Partly cloudy\\\", \\\"humidity\\\": 65}\"\n      }\n    ],\n    \"structuredContent\": {\n      \"temperature\": 22.5,\n      \"conditions\": \"Partly cloudy\",\n      \"humidity\": 65\n    }\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:23b77b428202f8f3b0b41c158ce553aba739cff89f0d78c76613a11483bce308",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 20,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#schema-examples",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Schema Examples",
+              "slug": "schema-examples"
+            }
+          ],
+          "markdown": "### Schema Examples\n",
+          "contentHash": "ceb10b889be773f07e2c7b4deb2f800efb82645265aebcddafac6af2d8e40127",
+          "codeExamples": [],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:d706a23b427bd4032d8e09d9d79218960353a90aec1e63bb70cf3971307308f6",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 21,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-with-default-2020-12-schema",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Schema Examples",
+              "slug": "schema-examples"
+            },
+            {
+              "level": 4,
+              "title": "Tool with default 2020-12 schema:",
+              "slug": "tool-with-default-2020-12-schema"
+            }
+          ],
+          "markdown": "#### Tool with default 2020-12 schema:\n\n```json theme={null}\n{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}\n```\n",
+          "contentHash": "129dfd67db504d1ed98b1374f7a7fc0382a3e5ba66ee8492a460652743d7ad11",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:32d5dc58295cd4c67da89ae4b5dfc67c50ea94925f9f764e2d0fb29d3f53f6f8",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 22,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-with-explicit-draft-07-schema",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Schema Examples",
+              "slug": "schema-examples"
+            },
+            {
+              "level": 4,
+              "title": "Tool with explicit draft-07 schema:",
+              "slug": "tool-with-explicit-draft-07-schema"
+            }
+          ],
+          "markdown": "#### Tool with explicit draft-07 schema:\n\n```json theme={null}\n{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}\n```\n",
+          "contentHash": "5c91e32693b3cd20fad37882951ba624aec589a0aec522d35bd541762d59c4d1",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"name\": \"calculate_sum\",\n  \"description\": \"Add two numbers\",\n  \"inputSchema\": {\n    \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n    \"type\": \"object\",\n    \"properties\": {\n      \"a\": { \"type\": \"number\" },\n      \"b\": { \"type\": \"number\" }\n    },\n    \"required\": [\"a\", \"b\"]\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:69c3dbce4d7f2c188b841d5c3f6b9f9b0ccf80fdc1bf26a3633b46996fab0e8b",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 23,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-with-no-parameters",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Data Types",
+              "slug": "data-types"
+            },
+            {
+              "level": 3,
+              "title": "Schema Examples",
+              "slug": "schema-examples"
+            },
+            {
+              "level": 4,
+              "title": "Tool with no parameters:",
+              "slug": "tool-with-no-parameters"
+            }
+          ],
+          "markdown": "#### Tool with no parameters:\n\n```json theme={null}\n{\n  \"name\": \"get_current_time\",\n  \"description\": \"Returns the current server time\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"additionalProperties\": false\n  }\n}\n```\n",
+          "contentHash": "d0bc0110733b1c1f12ff9eabd0e8158fd028f6d04f17416a34fb2b7652b0cd40",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"name\": \"get_current_time\",\n  \"description\": \"Returns the current server time\",\n  \"inputSchema\": {\n    \"type\": \"object\",\n    \"additionalProperties\": false\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:849e85c2af946cb84f419f8392e52fc2a7882ea4a294c3bb1095d2b0ffa38f2c",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 24,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#error-handling",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Error Handling",
+              "slug": "error-handling"
+            }
+          ],
+          "markdown": "## Error Handling\n\nTools use two error reporting mechanisms:\n\n1. **Protocol Errors**: Standard JSON-RPC errors for issues like:\n   - Unknown tools\n   - Malformed requests (requests that fail to satisfy [CallToolRequest schema](https://modelcontextprotocol.io/specification/2025-11-25/schema.md#calltoolrequest))\n   - Server errors\n\n2. **Tool Execution Errors**: Reported in tool results with `isError: true`:\n   - API failures\n   - Input validation errors (e.g., date in wrong format, value out of range)\n   - Business logic errors\n\n**Tool Execution Errors** contain actionable feedback that language models can use to self-correct and retry with adjusted parameters.\n**Protocol Errors** indicate issues with the request structure itself that models are less likely to be able to fix.\nClients **SHOULD** provide tool execution errors to language models to enable self-correction.\nClients **MAY** provide protocol errors to language models, though these are less likely to result in successful recovery.\n\nExample protocol error:\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"error\": {\n    \"code\": -32602,\n    \"message\": \"Unknown tool: invalid_tool_name\"\n  }\n}\n```\n\nExample tool execution error (input validation):\n\n```json theme={null}\n{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Invalid departure date: must be in the future. Current date is 08/08/2025.\"\n      }\n    ],\n    \"isError\": true\n  }\n}\n```\n",
+          "contentHash": "5f0089f71ac7135d99a113678b2053345dac66f7a24aa2519fd4841356ec0091",
+          "codeExamples": [
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"error\": {\n    \"code\": -32602,\n    \"message\": \"Unknown tool: invalid_tool_name\"\n  }\n}"
+            },
+            {
+              "language": "json",
+              "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"result\": {\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Invalid departure date: must be in the future. Current date is 08/08/2025.\"\n      }\n    ],\n    \"isError\": true\n  }\n}"
+            }
+          ],
+          "references": []
+        },
+        {
+          "id": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6:5fda40bf4a20edc238cf90442b5e50a6d0b2a84992c763953f37ec05128eded6",
+          "documentId": "mcp-spec:v2025-11-25:6a690900ead9fb99df89ab2a998199d4dba56a49a04f9d440209fb7238fc49a6",
+          "index": 25,
+          "title": "Tools",
+          "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools#security-considerations",
+          "sourceRevision": "2025-11-25",
+          "headingPath": [
+            {
+              "level": 1,
+              "title": "Tools",
+              "slug": "tools"
+            },
+            {
+              "level": 2,
+              "title": "Security Considerations",
+              "slug": "security-considerations"
+            }
+          ],
+          "markdown": "## Security Considerations\n\n1. Servers **MUST**:\n   - Validate all tool inputs\n   - Implement proper access controls\n   - Rate limit tool invocations\n   - Sanitize tool outputs\n\n2. Clients **SHOULD**:\n   - Prompt for user confirmation on sensitive operations\n   - Show tool inputs to the user before calling the server, to avoid malicious or\n     accidental data exfiltration\n   - Validate tool results before passing to LLM\n   - Implement timeouts for tool calls\n   - Log tool usage for audit purposes\n\nThis documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.\n",
+          "contentHash": "cc4ba05d1570b358bf103fd7e037a52fc2c0b0a7591edcc1715b65aa9cc9c5d0",
           "codeExamples": [],
           "references": []
         }

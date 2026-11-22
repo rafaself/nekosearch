@@ -39,6 +39,18 @@ const canonicalPages = new Map([
     'tools-resources-prompts.md',
     `https://modelcontextprotocol.io/specification/${version}/server`,
   ],
+  [
+    'tools.md',
+    `https://modelcontextprotocol.io/specification/${version}/server/tools`,
+  ],
+  [
+    'resources.md',
+    `https://modelcontextprotocol.io/specification/${version}/server/resources`,
+  ],
+  [
+    'tool-annotations-schema.md',
+    `https://modelcontextprotocol.io/specification/${version}/schema`,
+  ],
 ]);
 
 const fileNames = (await readdir(sourceDirectory))
