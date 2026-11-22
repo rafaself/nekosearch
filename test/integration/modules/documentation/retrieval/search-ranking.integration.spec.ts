@@ -48,6 +48,21 @@ describe('documentation search ranking', () => {
           markdown:
             '# Streaming files\n\nHow can I stream a file from a controller? This guide explains streaming files from a controller.',
         },
+        {
+          path: 'content/techniques/validation.md',
+          canonicalUrl: `${canonicalRoot}/techniques/validation`,
+          markdown:
+            '# Validation\n\n## Pipes\n\nPipes transform and validate incoming DTO payloads.',
+        },
+        {
+          path: 'content/migration.md',
+          canonicalUrl: `${canonicalRoot}/migration-guide`,
+          markdown: `# Framework migration recipe\n\n## Validation and DTO changes\n\n${Array.from(
+            { length: 40 },
+            () =>
+              'During the migration, validation pipes validate each DTO payload and update its validation rules.',
+          ).join('\n\n')}`,
+        },
       ]);
       const databasePath = join(directory, `documentation-v${version}.sqlite`);
       const writer = new DocumentationIndexWriter(databasePath, version);
@@ -110,6 +125,20 @@ describe('documentation search ranking', () => {
             ),
         ),
       ).toBe(true);
+    },
+  );
+
+  it.each(['11', '12'] as const)(
+    'ranks the primary validation guide above a matching migration recipe for NestJS v%s',
+    (version) => {
+      const results = search(version, 'pipes validation DTO');
+      const result = results[0];
+
+      expect(result?.canonicalUrl).toContain(
+        version === '11'
+          ? '/v11/techniques/validation'
+          : '/techniques/validation',
+      );
     },
   );
 });

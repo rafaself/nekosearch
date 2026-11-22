@@ -14,6 +14,9 @@ import { validateRuntimeIndex } from './runtime-index.js';
 const EMBEDDING_DIMENSIONS = 1024;
 const EMBEDDING_BLOB_BYTES =
   EMBEDDING_DIMENSIONS * Float32Array.BYTES_PER_ELEMENT;
+const TITLE_QUERY_TERM_BOOST = 1;
+const HEADING_QUERY_TERM_BOOST = 0.25;
+const MAX_METADATA_BOOST_FRACTION = 0.1;
 
 export class SQLiteDocumentationStore implements DocumentationSearchStore {
   private readonly database: DatabaseSync;
@@ -53,14 +56,19 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
     }
   }
 
-  search(expression: string, limit: number): DocumentationSearchResult[] {
-    return this.database
+  search(
+    expression: string,
+    limit: number,
+    queryTerms: readonly string[] = [],
+  ): DocumentationSearchResult[] {
+    const candidates = this.database
       .prepare(
         `
         SELECT
           chunk_id AS chunkId,
           document_id AS documentId,
           title,
+          heading_path AS headingPath,
           canonical_url AS canonicalUrl,
           source_revision AS sourceRevision,
           snippet(documentation_search, 2, '[', ']', ' … ', 32) AS excerpt,
@@ -77,9 +85,44 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
       .all(
         expression,
         this.indexManifest.documentation.version,
-        Math.min(limit, MAX_SEARCH_RESULT_LIMIT),
+        MAX_SEARCH_RESULT_LIMIT,
+      );
+
+    const scoredCandidates = candidates.map((row) => {
+      const result = toSearchResult(row);
+      const title = requireString(row.title, 'title');
+      const headingPath = requireString(row.headingPath, 'heading path');
+      return {
+        result,
+        metadataBoost: queryMetadataBoost(title, headingPath, queryTerms),
+      };
+    });
+    const maximumBm25Score = Math.max(
+      0,
+      ...scoredCandidates.map(({ result }) => result.score),
+    );
+    const maximumMetadataBoost = Math.max(
+      0,
+      ...scoredCandidates.map(({ metadataBoost }) => metadataBoost),
+    );
+    const metadataBoostScale = maximumMetadataBoost
+      ? (maximumBm25Score * MAX_METADATA_BOOST_FRACTION) / maximumMetadataBoost
+      : 0;
+
+    return scoredCandidates
+      .map((row) => {
+        return {
+          ...row.result,
+          score: row.result.score + row.metadataBoost * metadataBoostScale,
+        };
+      })
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          compareStrings(left.documentId, right.documentId) ||
+          compareStrings(left.chunkId, right.chunkId),
       )
-      .map(toSearchResult);
+      .slice(0, Math.min(limit, MAX_SEARCH_RESULT_LIMIT));
   }
 
   /** Exact dot-product scan over this snapshot's validated vector table. */
@@ -261,6 +304,43 @@ function toSearchResult(
     excerpt,
     score: -rank,
   };
+}
+
+function queryMetadataBoost(
+  title: string,
+  headingPath: string,
+  queryTerms: readonly string[],
+): number {
+  if (queryTerms.length === 0) return 0;
+  const titleTerms = new Set(exactSearchTerms(title));
+  const headingTerms = new Set(exactSearchTerms(headingPath));
+  let boost = 0;
+  for (const queryTerm of queryTerms) {
+    const normalizedTerm = queryTerm.toLocaleLowerCase('en-US');
+    if (titleTerms.has(normalizedTerm)) {
+      boost += TITLE_QUERY_TERM_BOOST;
+    } else if (headingTerms.has(normalizedTerm)) {
+      boost += HEADING_QUERY_TERM_BOOST;
+    }
+  }
+  return boost;
+}
+
+function exactSearchTerms(text: string): string[] {
+  return (text.match(/[\p{L}\p{N}_]+/gu) ?? []).map((term) =>
+    term.toLocaleLowerCase('en-US'),
+  );
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`SQLite returned an invalid documentation search ${field}`);
+  }
+  return value;
+}
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 interface SemanticCandidate {

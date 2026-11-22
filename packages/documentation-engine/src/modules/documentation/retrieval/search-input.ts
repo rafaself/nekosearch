@@ -35,9 +35,7 @@ export function buildSearchExpression(query: unknown, limit: number): string {
       'Search result limit must be a positive integer',
     );
   }
-  const terms = [
-    ...new Set(parsed.data.trim().match(/[\p{L}\p{N}_]+/gu) ?? []),
-  ];
+  const terms = extractSearchTerms(parsed.data);
   if (terms.length > MAX_SEARCH_QUERY_TERMS) {
     throw new DocumentationInputError(
       `Search query must contain at most ${MAX_SEARCH_QUERY_TERMS} terms`,
@@ -53,6 +51,10 @@ export function buildSearchExpression(query: unknown, limit: number): string {
   // lift; the original OR terms remain as a recall fallback.
   const phrase = quote(terms.join(' '));
   return `${phrase} OR ${alternatives}`;
+}
+
+export function extractSearchTerms(query: string): string[] {
+  return [...new Set(query.trim().match(/[\p{L}\p{N}_]+/gu) ?? [])];
 }
 
 export function validateDocumentId(documentId: unknown): string {

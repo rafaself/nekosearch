@@ -12,6 +12,7 @@ import {
 } from '../../retrieval/search.constants.js';
 import {
   buildSearchExpression,
+  extractSearchTerms,
   validateDocumentId,
 } from '../../retrieval/search-input.js';
 import { paginateDocumentation } from '../../retrieval/document-page.js';
@@ -33,9 +34,12 @@ export class DocumentationSearchService implements DocumentationReader {
   ): DocumentationSearchResult[] {
     const matchExpression = buildSearchExpression(query, limit);
     if (!matchExpression) return [];
+    const queryTerms =
+      typeof query === 'string' ? extractSearchTerms(query) : [];
     return this.store.search(
       matchExpression,
       Math.min(limit, MAX_SEARCH_RESULT_LIMIT),
+      queryTerms,
     );
   }
 

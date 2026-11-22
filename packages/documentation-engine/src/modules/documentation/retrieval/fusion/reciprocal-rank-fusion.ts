@@ -47,7 +47,7 @@ export function hybridSearchRanking(
   if (!identifier) return fusedResults;
 
   const exactLexicalResult = lexicalResults.find((result) =>
-    containsIdentifier(result.excerpt, identifier),
+    containsIdentifier(result, identifier),
   );
   if (!exactLexicalResult) return fusedResults;
 
@@ -107,8 +107,13 @@ function exactIdentifierQuery(query: string): string | undefined {
     : undefined;
 }
 
-function containsIdentifier(text: string, identifier: string): boolean {
-  return (text.match(/[\p{L}\p{N}_$]+/gu) ?? []).some(
-    (token) => token.toLocaleLowerCase('en-US') === identifier,
+function containsIdentifier(
+  result: DocumentationSearchResult,
+  identifier: string,
+): boolean {
+  return [result.title, result.canonicalUrl, result.excerpt].some((text) =>
+    (text.match(/[\p{L}\p{N}_$]+/gu) ?? []).some(
+      (token) => token.toLocaleLowerCase('en-US') === identifier,
+    ),
   );
 }

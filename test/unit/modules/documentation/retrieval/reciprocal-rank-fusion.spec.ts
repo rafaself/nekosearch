@@ -63,6 +63,33 @@ describe('reciprocalRankFusion', () => {
     );
   });
 
+  it.each(['title', 'heading URL'])(
+    'keeps an exact identifier found in the %s visible after semantic fusion',
+    (matchLocation) => {
+      const exactMatch = {
+        ...searchResult('exact-heading', 'An API reference for requests.'),
+        title: matchLocation === 'title' ? 'ExecutionContext' : 'API reference',
+        canonicalUrl:
+          matchLocation === 'heading URL'
+            ? 'https://docs.example/execution-context#executioncontext-class'
+            : 'https://docs.example/execution-context',
+      };
+      const sharedResults = Array.from({ length: 5 }, (_, index) =>
+        searchResult(`shared-${index}`),
+      );
+      const lexical = [
+        ...sharedResults.slice(0, 1),
+        exactMatch,
+        ...sharedResults.slice(1),
+      ];
+      const semantic = [...sharedResults];
+
+      const hybrid = hybridSearchRanking('ExecutionContext', lexical, semantic);
+
+      expect(hybrid[0]?.chunkId).toBe(exactMatch.chunkId);
+    },
+  );
+
   it('leaves natural-language queries in reciprocal-rank order', () => {
     const lexical = [searchResult('lexical-only'), searchResult('shared')];
     const semantic = [searchResult('semantic-only'), searchResult('shared')];

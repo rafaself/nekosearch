@@ -15,7 +15,7 @@ The engine quotes terms and combines alternatives. For multiple terms, an additi
 
 ## Ranking within a source
 
-SQLite FTS5 provides full-text matching, snippets, and weighted BM25 ranking across the indexed fields. Stable document and chunk identifiers break ties. Results include `chunkId`, `documentId`, title, canonical URL, source revision, excerpt, and score.
+SQLite FTS5 provides full-text matching, snippets, and weighted BM25 ranking across the indexed fields. Exact query terms in the page title and heading path add a bounded metadata boost, with title matches weighted above heading matches and total metadata contribution capped at 10% of the strongest BM25 score. Stable document and chunk identifiers break ties. Results include `chunkId`, `documentId`, title, canonical URL, source revision, excerpt, and the combined lexical score.
 
 The engine has an internal result cap of 50, but the **public MCP contract caps the entire response at 10**. Internal engine limits are not extra MCP options.
 
@@ -29,7 +29,7 @@ When `search.semantic.enabled` is false or absent, serving uses only FTS5/BM25 a
 
 ## Hybrid ranking
 
-For each snapshot, NekoSearch retrieves up to 50 lexical and 50 semantic candidates, then applies equal-weight reciprocal rank fusion with `k = 60`. RRF uses 1-based positions and breaks equal fused scores by chunk ID. For a single-symbol query, if a lexical excerpt contains that exact identifier, its highest BM25 match is kept first after fusion; both retrievers still run and the result retains its RRF score. This narrow safeguard prevents semantic candidates from burying an exact API or decorator match. Fusion never crosses snapshot boundaries. The catalog then keeps its existing source order and round-robin result allocation up to the public total limit of 10. BM25 and cosine scores are not compared directly.
+For each snapshot, NekoSearch retrieves up to 50 lexical and 50 semantic candidates, then applies equal-weight reciprocal rank fusion with `k = 60`. RRF uses 1-based positions and breaks equal fused scores by chunk ID. For a single-symbol query, if a lexical result title, heading URL, or excerpt contains that exact identifier, its highest-ranked lexical match is kept first after fusion; both retrievers still run and the result retains its RRF score. This narrow safeguard prevents semantic candidates from burying an exact API or decorator match. Fusion never crosses snapshot boundaries. The catalog then keeps its existing source order and round-robin result allocation up to the public total limit of 10. Lexical and semantic scores are not compared directly.
 
 ## Combining selected sources
 

@@ -17,7 +17,11 @@ export interface DocumentationSectionReference {
 }
 
 export interface DocumentationSearchStore {
-  search(expression: string, limit: number): DocumentationSearchResult[];
+  search(
+    expression: string,
+    limit: number,
+    queryTerms?: readonly string[],
+  ): DocumentationSearchResult[];
   fetchRows(documentId: string): DocumentationRow[];
   findSection(
     documentId: string,
