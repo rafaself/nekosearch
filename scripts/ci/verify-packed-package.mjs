@@ -151,6 +151,9 @@ async function verifyDashboard(project, temporaryDirectory) {
     );
     assert.match(catalogPage, /src="\/navigation.js"/u);
     assert.doesNotMatch(catalogPage, /<form\b/u);
+    const usagePage = await getAsset('/usage', 'text/html');
+    assert.match(usagePage, /Clear usage data/u);
+    assert.doesNotMatch(usagePage, /Keep statistics for|usage-retention/u);
     const addPage = await getAsset('/add', 'text/html');
     assert.match(addPage, /href="\/">\s*Catalog/u);
     assert.match(addPage, /href="\/about"\s*>\s*About\s*<\/a>/u);
@@ -169,7 +172,6 @@ async function verifyDashboard(project, temporaryDirectory) {
       /href="https:\/\/github\.com\/rafaself\/nekosearch\/issues\/new\/choose"/u,
     );
     assert.match(aboutPage, /href="https:\/\/nekosearch\.pages\.dev\/"/u);
-    const usagePage = await getAsset('/usage', 'text/html');
     assert.match(usagePage, /<title>Usage · NekoSearch<\/title>/u);
     assert.match(usagePage, /id="usage-settings"/u);
     assert.match(usagePage, /id="usage-calls"/u);
@@ -217,7 +219,6 @@ async function verifyDashboard(project, temporaryDirectory) {
     assert.deepEqual(await defaultUsageSettings.json(), {
       enabled: false,
       queryMode: 'counts',
-      retentionDays: 30,
     });
     assert.equal(existsSync(usageDatabasePath), false);
     const emptyUsage = await request('/api/usage?window=all');
@@ -227,7 +228,6 @@ async function verifyDashboard(project, temporaryDirectory) {
     const usageSettings = {
       enabled: true,
       queryMode: 'counts',
-      retentionDays: 30,
     };
     const updateUsage = (requestOrigin = origin) =>
       request('/api/usage/settings', {
@@ -242,6 +242,15 @@ async function verifyDashboard(project, temporaryDirectory) {
     const savedUsageSettings = await updateUsage();
     assert.equal(savedUsageSettings.status, 200);
     assert.deepEqual(await savedUsageSettings.json(), usageSettings);
+    const legacyRetentionSettings = await request('/api/usage/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: origin,
+      },
+      body: JSON.stringify({ ...usageSettings, retentionDays: 30 }),
+    });
+    assert.equal(legacyRetentionSettings.status, 400);
     assert.equal((await stat(usageDatabasePath)).mode & 0o777, 0o600);
     assert.equal(
       (

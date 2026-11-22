@@ -9,17 +9,10 @@ const DATABASE_FILE = 'usage.sqlite';
 const SCHEMA_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_QUERY_MODE = 'counts';
-const DEFAULT_RETENTION_DAYS = 30;
 
 const usageSettingsSchema = z.strictObject({
   enabled: z.boolean(),
   queryMode: z.enum(['counts', 'fingerprint', 'raw']),
-  retentionDays: z.union([
-    z.literal(7),
-    z.literal(30),
-    z.literal(90),
-    z.null(),
-  ]),
 });
 
 export type UsageQueryMode = z.infer<typeof usageSettingsSchema>['queryMode'];
@@ -37,7 +30,6 @@ export interface UsageFilters {
 export const DEFAULT_USAGE_SETTINGS: UsageSettings = {
   enabled: false,
   queryMode: DEFAULT_QUERY_MODE,
-  retentionDays: DEFAULT_RETENTION_DAYS,
 };
 
 interface ToolCallEvent {
@@ -155,6 +147,7 @@ export interface UsageSummary {
 /** Local-only MCP usage recorder and query service. It creates no file until the user saves settings. */
 export class UsageStatsStore {
   private readonly databasePath: string;
+  private legacyRetentionNormalized = false;
 
   constructor(
     userDataDirectory = getUserDataDirectory(),
@@ -174,26 +167,6 @@ export class UsageStatsStore {
     }
   }
 
-  pruneExpired(): void {
-    const database = this.openExistingDatabase();
-    if (!database) return;
-    try {
-      database.exec('BEGIN IMMEDIATE');
-      const settings = readSettings(database);
-      if (settings.retentionDays === null) {
-        database.exec('ROLLBACK');
-        return;
-      }
-      pruneExpiredCalls(database, settings.retentionDays, this.clock());
-      database.exec('COMMIT');
-    } catch (error) {
-      rollback(database);
-      this.onStorageError(error);
-    } finally {
-      database.close();
-    }
-  }
-
   updateSettings(input: unknown): UsageSettings {
     const settings = usageSettingsSchema.parse(input);
     const database = this.openDatabase(true);
@@ -202,16 +175,10 @@ export class UsageStatsStore {
       database
         .prepare(
           `UPDATE usage_settings
-           SET enabled = ?, query_mode = ?, retention_days = ?, updated_at = ?, last_pruned_at = NULL
+           SET enabled = ?, query_mode = ?, retention_days = NULL, updated_at = ?, last_pruned_at = NULL
            WHERE id = 1`,
         )
-        .run(
-          settings.enabled ? 1 : 0,
-          settings.queryMode,
-          settings.retentionDays,
-          this.clock(),
-        );
-      pruneExpiredCalls(database, settings.retentionDays, this.clock());
+        .run(settings.enabled ? 1 : 0, settings.queryMode, this.clock());
       database.exec('COMMIT');
       return settings;
     } catch (error) {
@@ -293,7 +260,6 @@ export class UsageStatsStore {
       try {
         database.exec('BEGIN IMMEDIATE');
         const settings = readSettings(database);
-        pruneIfDue(database, settings, this.clock());
         if (!settings.enabled) {
           database.exec('COMMIT');
           return;
@@ -329,6 +295,14 @@ export class UsageStatsStore {
       if (!hasUsageSchema(database)) {
         database.close();
         return undefined;
+      }
+      if (!this.legacyRetentionNormalized) {
+        database
+          .prepare(
+            'UPDATE usage_settings SET retention_days = NULL WHERE id = 1 AND retention_days IS NOT NULL',
+          )
+          .run();
+        this.legacyRetentionNormalized = true;
       }
       return database;
     } catch (error) {
@@ -982,7 +956,7 @@ function initializeSchema(database: DatabaseSync): void {
       );
       INSERT OR IGNORE INTO usage_settings (
         id, enabled, query_mode, retention_days, fingerprint_key, updated_at
-      ) VALUES (1, 0, 'counts', 30, '${randomUUID()}${randomUUID()}', 0);
+      ) VALUES (1, 0, 'counts', NULL, '${randomUUID()}${randomUUID()}', 0);
       CREATE TABLE IF NOT EXISTS tool_calls (
         call_id TEXT PRIMARY KEY,
         timestamp INTEGER NOT NULL,
@@ -1051,13 +1025,12 @@ function readSettings(database: DatabaseSync): UsageSettings {
   if (!hasUsageSchema(database)) return { ...DEFAULT_USAGE_SETTINGS };
   const row = database
     .prepare(
-      'SELECT enabled, query_mode AS queryMode, retention_days AS retentionDays FROM usage_settings WHERE id = 1',
+      'SELECT enabled, query_mode AS queryMode FROM usage_settings WHERE id = 1',
     )
     .get();
   const parsed = usageSettingsSchema.safeParse({
     enabled: asNumber(row?.enabled) === 1,
     queryMode: row?.queryMode,
-    retentionDays: row?.retentionDays ?? null,
   });
   return parsed.success ? parsed.data : { ...DEFAULT_USAGE_SETTINGS };
 }
@@ -1074,36 +1047,6 @@ function getFingerprintKey(database: DatabaseSync): string {
     .prepare('UPDATE usage_settings SET fingerprint_key = ? WHERE id = 1')
     .run(replacement);
   return replacement;
-}
-
-function pruneIfDue(
-  database: DatabaseSync,
-  settings: UsageSettings,
-  now: number,
-): void {
-  if (settings.retentionDays === null) return;
-  const lastPrunedAt = database
-    .prepare(
-      'SELECT last_pruned_at AS lastPrunedAt FROM usage_settings WHERE id = 1',
-    )
-    .get()?.lastPrunedAt;
-  if (typeof lastPrunedAt === 'number' && now - lastPrunedAt < DAY_MS) return;
-  pruneExpiredCalls(database, settings.retentionDays, now);
-}
-
-function pruneExpiredCalls(
-  database: DatabaseSync,
-  retentionDays: number | null,
-  now: number,
-): void {
-  if (retentionDays !== null) {
-    database
-      .prepare('DELETE FROM tool_calls WHERE timestamp < ?')
-      .run(now - retentionDays * DAY_MS);
-  }
-  database
-    .prepare('UPDATE usage_settings SET last_pruned_at = ? WHERE id = 1')
-    .run(now);
 }
 
 function rollback(database: DatabaseSync): void {

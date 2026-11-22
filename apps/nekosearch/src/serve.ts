@@ -122,7 +122,6 @@ export async function serve(): Promise<void> {
       `MCP usage statistics could not be stored (${getErrorClass(error)}).\n`,
     );
   });
-  usageStats.pruneExpired();
   server.registerTool(
     'list_docs',
     {

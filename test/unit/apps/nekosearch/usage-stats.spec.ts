@@ -20,7 +20,6 @@ describe('UsageStatsStore', () => {
     expect(store.getSettings()).toEqual({
       enabled: false,
       queryMode: 'counts',
-      retentionDays: 30,
     });
 
     store.record('list_docs', {}, () => ({
@@ -36,7 +35,6 @@ describe('UsageStatsStore', () => {
     store.updateSettings({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: 30,
     });
     const searchResult = {
       content: [{ type: 'text', text: 'private documentation response' }],
@@ -210,7 +208,6 @@ describe('UsageStatsStore', () => {
     store.updateSettings({
       enabled: true,
       queryMode: 'fingerprint',
-      retentionDays: 30,
     });
     const recordSearch = () =>
       store.record(
@@ -235,7 +232,6 @@ describe('UsageStatsStore', () => {
     store.updateSettings({
       enabled: true,
       queryMode: 'raw',
-      retentionDays: 30,
     });
     recordSearch();
     const rawSummary = store.getSummary({ window: 'all' });
@@ -248,13 +244,12 @@ describe('UsageStatsStore', () => {
     });
   });
 
-  it('applies retention, keeps unlimited history, and clears calls without changing settings', () => {
+  it('retains calls indefinitely and clears them without changing settings', () => {
     let now = 100_000;
     const store = new UsageStatsStore(directory, () => now);
     store.updateSettings({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: 7,
     });
     const recordList = () =>
       store.record('list_docs', {}, () => ({
@@ -262,43 +257,53 @@ describe('UsageStatsStore', () => {
       }));
 
     recordList();
-    now += 8 * 24 * 60 * 60 * 1000;
-    recordList();
-    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(1);
-
+    now += 100 * 24 * 60 * 60 * 1000;
     store.updateSettings({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: null,
     });
+    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(1);
     recordList();
-    now += 100 * 24 * 60 * 60 * 1000;
-    recordList();
-    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(3);
-    expect(store.clear()).toBe(3);
+    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(2);
+    expect(store.clear()).toBe(2);
     expect(store.getSummary({ window: 'all' }).totals.calls).toBe(0);
     expect(store.getSettings()).toEqual({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: null,
     });
   });
 
-  it('prunes expired data when a process starts even before another tool call', () => {
+  it('normalizes legacy retention settings without deleting existing calls', () => {
     let now = 5_000;
     const store = new UsageStatsStore(directory, () => now);
     store.updateSettings({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: 7,
     });
     store.record('list_docs', {}, () => ({
       structuredContent: { sources: [] },
     }));
 
-    now += 8 * 24 * 60 * 60 * 1000;
-    new UsageStatsStore(directory, () => now).pruneExpired();
+    const database = new DatabaseSync(join(directory, 'usage.sqlite'));
+    database
+      .prepare('UPDATE usage_settings SET retention_days = 7 WHERE id = 1')
+      .run();
+    database.close();
 
-    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(0);
+    now += 100 * 24 * 60 * 60 * 1000;
+    const reopenedStore = new UsageStatsStore(directory, () => now);
+    expect(reopenedStore.getSettings()).toEqual({
+      enabled: true,
+      queryMode: 'counts',
+    });
+    expect(reopenedStore.getSummary({ window: 'all' }).totals.calls).toBe(1);
+
+    const migratedDatabase = new DatabaseSync(join(directory, 'usage.sqlite'));
+    expect(
+      migratedDatabase
+        .prepare('SELECT retention_days FROM usage_settings WHERE id = 1')
+        .get()?.retention_days,
+    ).toBeNull();
+    migratedDatabase.close();
   });
 });

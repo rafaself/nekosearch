@@ -212,7 +212,6 @@ describe('nekosearch serve stdio server', () => {
     usage.updateSettings({
       enabled: true,
       queryMode: 'counts',
-      retentionDays: 30,
     });
     const transport = createTransport(dataHome, directory);
     const client = new Client({ name: 'usage-test', version: '0.0.1' });

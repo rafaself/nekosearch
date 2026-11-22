@@ -96,7 +96,7 @@ export function createUsagePage(main, dashboard) {
           ? result.totals.calls
             ? ''
             : 'No calls have been recorded in this period.'
-          : 'Collection is off. Enable it above to record future MCP calls. Existing retained statistics remain available.',
+          : 'Collection is off. Enable it above to record future MCP calls. Existing statistics remain available.',
       );
     } catch (error) {
       setNotice(error.message, true);
@@ -109,12 +109,9 @@ export function createUsagePage(main, dashboard) {
     setButtonsDisabled(true);
     try {
       const form = new FormData(settingsForm);
-      const retentionValue = form.get('retentionDays');
       const settings = await dashboard.updateUsageSettings({
         enabled: form.get('enabled') === 'on',
         queryMode: form.get('queryMode'),
-        retentionDays:
-          retentionValue === 'never' ? null : Number(retentionValue),
       });
       renderSettings(settings);
       setNotice('Usage collection settings saved.');
@@ -154,10 +151,6 @@ export function createUsagePage(main, dashboard) {
   function renderSettings(settings) {
     main.querySelector('#usage-enabled').checked = settings.enabled;
     main.querySelector('#usage-query-mode').value = settings.queryMode;
-    main.querySelector('#usage-retention').value =
-      settings.retentionDays === null
-        ? 'never'
-        : String(settings.retentionDays);
   }
 
   function renderReport(data) {
@@ -267,10 +260,10 @@ export function createUsagePage(main, dashboard) {
     ];
     note.textContent =
       data.settings.queryMode === 'counts'
-        ? 'The current setting stores query length only. Raw queries captured under a previous setting remain until retention expires or you clear usage data.'
+        ? 'The current setting stores query length only. Raw queries captured under a previous setting remain until you clear usage data.'
         : data.settings.queryMode === 'fingerprint'
-          ? 'The current setting groups repeat queries by a keyed fingerprint. Raw queries captured under a previous setting remain until retention expires or you clear usage data.'
-          : 'Raw query collection is enabled for new calls. Previously captured raw queries remain until retention expires or you clear usage data.';
+          ? 'The current setting groups repeat queries by a keyed fingerprint. Raw queries captured under a previous setting remain until you clear usage data.'
+          : 'Raw query collection is enabled for new calls. Previously captured raw queries remain until you clear usage data.';
     renderRows(body, rows);
   }
 

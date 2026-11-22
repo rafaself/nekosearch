@@ -60,7 +60,6 @@ export async function runDashboard(): Promise<void> {
       `NekoSearch usage statistics could not be stored (${error instanceof Error ? error.name : 'Error'}).\n`,
     );
   });
-  usageStats.pruneExpired();
   const token = randomBytes(32).toString('base64url');
   const authorization = Buffer.from(`Bearer ${token}`);
 
