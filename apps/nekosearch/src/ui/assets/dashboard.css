@@ -485,6 +485,37 @@ select:disabled {
   background: var(--surface-raised);
 }
 
+.app-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+.app-dialog::backdrop {
+  background: rgb(0 0 0 / 72%);
+  backdrop-filter: blur(3px);
+}
+.app-dialog__form {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+}
+.app-dialog__message {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.app-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

@@ -29,6 +29,7 @@ const ASSETS = [
   ['/nekosearch.png', 'nekosearch.png', 'image/png'],
   ['/dashboard.css', 'dashboard.css', 'text/css; charset=utf-8'],
   ...[
+    'action-dialog.js',
     'catalog.js',
     'add-documentation.js',
     'dashboard.js',

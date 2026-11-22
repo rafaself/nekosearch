@@ -1,3 +1,5 @@
+import { showActionDialog } from './action-dialog.js';
+
 const actionIcons = {
   update: [
     'M20 7v5h-5',
@@ -49,11 +51,17 @@ function createActionButton(
   }
   button.addEventListener('click', () => {
     if (label === 'Remove') {
-      if (!window.confirm(`Remove ${entry.selector} from the catalog?`)) return;
-      void dashboard.startJob({
-        operation: 'remove',
-        selector: entry.selector,
-        snapshotKey: entry.snapshotKey,
+      showActionDialog({
+        title: `Remove ${entry.selector}?`,
+        message:
+          'This removes the snapshot from your local catalog and deletes its stored files. You can add the documentation again later.',
+        actionLabel: 'Remove snapshot',
+        onAction: () =>
+          void dashboard.startJob({
+            operation: 'remove',
+            selector: entry.selector,
+            snapshotKey: entry.snapshotKey,
+          }),
       });
       return;
     }

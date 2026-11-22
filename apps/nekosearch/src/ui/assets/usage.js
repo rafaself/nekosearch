@@ -1,3 +1,5 @@
+import { showActionDialog } from './action-dialog.js';
+
 const numberFormat = new Intl.NumberFormat();
 const pageSize = 25;
 
@@ -34,8 +36,13 @@ export function createUsagePage(main, dashboard) {
     }
   });
   main.querySelector('#usage-clear').addEventListener('click', () => {
-    if (!window.confirm('Clear all locally stored usage statistics?')) return;
-    void clearUsage();
+    showActionDialog({
+      title: 'Clear usage statistics?',
+      message:
+        'This permanently clears all locally retained usage statistics. This cannot be undone.',
+      actionLabel: 'Clear statistics',
+      onAction: () => void clearUsage(),
+    });
   });
 
   return { onShow: () => void loadReport() };
