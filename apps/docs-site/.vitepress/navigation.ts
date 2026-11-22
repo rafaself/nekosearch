@@ -52,6 +52,10 @@ export const sidebar = [
         link: '/architecture/documentation-engine',
       },
       { text: 'Retrieval', link: '/architecture/retrieval' },
+      {
+        text: 'Retrieval Comparison',
+        link: '/architecture/retrieval-comparison',
+      },
     ],
   },
   {

@@ -34,6 +34,7 @@
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --runInBand",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "search:evaluate": "npm run build && node scripts/evaluation/evaluate-search.mjs",
+    "search:compare": "npm run build && node scripts/evaluation/compare-retrieval.mjs",
     "package:pack": "npm run build && node scripts/ci/verify-package.mjs && node scripts/ci/verify-packed-package.mjs"
   },
   "devDependencies": {
