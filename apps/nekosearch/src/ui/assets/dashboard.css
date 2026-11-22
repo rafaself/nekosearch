@@ -394,16 +394,13 @@ h2 {
 }
 .usage-breakdowns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
 }
 .usage-breakdowns h3,
 .usage-recent h3 {
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
-}
-.usage-breakdowns section:last-child {
-  grid-column: 1 / -1;
 }
 .usage-recent {
   margin-top: 2rem;
@@ -634,12 +631,8 @@ select:disabled {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.3rem;
   }
-  .usage-settings,
-  .usage-breakdowns {
+  .usage-settings {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .usage-breakdowns section:last-child {
-    grid-column: auto;
   }
   .usage-filters {
     width: 100%;
