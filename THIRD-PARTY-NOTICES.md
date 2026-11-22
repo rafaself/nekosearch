@@ -15,5 +15,11 @@ The source specification is licensed under
 `docs/mcp-protocol/` are not official MCP documentation and were written for
 this package.
 
+The Request report information icon uses the Lucide `info` icon, derived from
+the Feather project. It is provided under the MIT license; the applicable
+notice is in [`licenses/lucide-info-MIT-LICENSE`](licenses/lucide-info-MIT-LICENSE).
+Sources: [Lucide info icon](https://github.com/lucide-icons/lucide/blob/main/icons/info.svg)
+and [Lucide license](https://github.com/lucide-icons/lucide/blob/main/LICENSE).
+
 This project is independent and is not affiliated with or endorsed by NestJS or
 the Model Context Protocol project or its maintainers.
