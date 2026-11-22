@@ -7,7 +7,14 @@ import { getUserDataDirectory } from './catalog.js';
 
 const DATABASE_FILE = 'usage.sqlite';
 const SCHEMA_VERSION = 1;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const WINDOW_MS = {
+  '24h': DAY_MS,
+  '7d': 7 * DAY_MS,
+  '30d': 30 * DAY_MS,
+  all: 0,
+};
 const DEFAULT_QUERY_MODE = 'counts';
 
 const usageSettingsSchema = z.strictObject({
@@ -28,7 +35,7 @@ export interface UsageFilters {
 }
 
 export const DEFAULT_USAGE_SETTINGS: UsageSettings = {
-  enabled: false,
+  enabled: true,
   queryMode: DEFAULT_QUERY_MODE,
 };
 
@@ -62,18 +69,46 @@ interface ToolCallEvent {
   }>;
 }
 
+type UsageTotals = {
+  calls: number;
+  successes: number;
+  failures: number;
+  averageDurationMs: number;
+  maxDurationMs: number;
+  averageResponseBytes: number;
+  totalResponseBytes: number;
+};
+
+type UsageFetches = {
+  calls: number;
+  found: number;
+  missing: number;
+  returnedSections: number;
+  references: number;
+  truncated: number;
+  continuations: number;
+};
+
 export interface UsageSummary {
   settings: UsageSettings;
   filters: Required<Pick<UsageFilters, 'window' | 'limit' | 'offset'>> &
     Pick<UsageFilters, 'selector' | 'tool'>;
-  totals: {
-    calls: number;
-    successes: number;
-    failures: number;
-    averageDurationMs: number;
-    maxDurationMs: number;
-    averageResponseBytes: number;
-    totalResponseBytes: number;
+  totals: UsageTotals;
+  timeline: {
+    start: number;
+    end: number;
+    bucketMs: number;
+    buckets: Array<{
+      totals: Omit<
+        UsageTotals,
+        'averageDurationMs' | 'maxDurationMs' | 'averageResponseBytes'
+      > & {
+        averageDurationMs: number | null;
+        maxDurationMs: number | null;
+        averageResponseBytes: number | null;
+      };
+      fetches: UsageFetches;
+    }>;
   };
   tools: Array<{
     tool: string;
@@ -102,15 +137,7 @@ export interface UsageSummary {
     searchHits: number;
     fetchCalls: number;
   }>;
-  fetches: {
-    calls: number;
-    found: number;
-    missing: number;
-    returnedSections: number;
-    references: number;
-    truncated: number;
-    continuations: number;
-  };
+  fetches: UsageFetches;
   queryLengths: Array<{ characters: number; calls: number }>;
   topQueries: Array<{
     mode: UsageQueryMode;
@@ -144,7 +171,7 @@ export interface UsageSummary {
   pagination: { total: number; limit: number; offset: number };
 }
 
-/** Local-only MCP usage recorder and query service. It creates no file until the user saves settings. */
+/** Local-only MCP usage recorder and query service. It creates its database on the first recorded call. */
 export class UsageStatsStore {
   private readonly databasePath: string;
   private legacyRetentionNormalized = false;
@@ -214,9 +241,10 @@ export class UsageStatsStore {
   getSummary(filters: UsageFilters): UsageSummary {
     const normalized = normalizeFilters(filters);
     const database = this.openExistingDatabase();
-    if (!database) return emptySummary(normalized);
+    const now = this.clock();
+    if (!database) return emptySummary(normalized, now);
     try {
-      return readSummary(database, this.clock(), normalized);
+      return readSummary(database, now, normalized);
     } finally {
       database.close();
     }
@@ -255,8 +283,7 @@ export class UsageStatsStore {
     error: unknown,
   ): void {
     try {
-      const database = this.openExistingDatabase();
-      if (!database) return;
+      const database = this.openExistingDatabase() ?? this.openDatabase(true);
       try {
         database.exec('BEGIN IMMEDIATE');
         const settings = readSettings(database);
@@ -509,13 +536,96 @@ function insertEvent(database: DatabaseSync, event: ToolCallEvent): void {
     );
 }
 
+const TOTALS_COLUMNS = `
+  count(*) AS calls,
+  sum(success = 1) AS successes,
+  sum(success = 0) AS failures,
+  avg(duration_ms) AS averageDurationMs,
+  max(duration_ms) AS maxDurationMs,
+  avg(response_bytes) AS averageResponseBytes,
+  sum(response_bytes) AS totalResponseBytes`;
+
+const FETCH_COLUMNS = `
+  sum(tool = 'fetch_docs') AS fetchCalls,
+  sum(fetch_found = 1) AS found,
+  sum(fetch_found = 0) AS missing,
+  sum(fetch_section_count) AS returnedSections,
+  sum(fetch_reference_count) AS referencesReturned,
+  sum(fetch_truncated = 1) AS truncated,
+  sum(fetch_has_cursor = 1) AS continuations`;
+
+function readFetchMetrics(
+  row: Record<string, SQLOutputValue> | undefined,
+): UsageFetches {
+  return {
+    calls: asNumber(row?.fetchCalls),
+    found: asNumber(row?.found),
+    missing: asNumber(row?.missing),
+    returnedSections: asNumber(row?.returnedSections),
+    references: asNumber(row?.referencesReturned),
+    truncated: asNumber(row?.truncated),
+    continuations: asNumber(row?.continuations),
+  };
+}
+
+function timelineRange(
+  now: number,
+  window: UsageWindow,
+  firstTimestamp: number | null,
+) {
+  const duration =
+    WINDOW_MS[window] || Math.max(HOUR_MS, now - (firstTimestamp ?? now));
+  const unit = window === '24h' || window === 'all' ? HOUR_MS : DAY_MS;
+  const bucketMs = Math.ceil(duration / (30 * unit)) * unit;
+  return { start: now - duration, end: now, bucketMs };
+}
+
+function readTimeline(
+  database: DatabaseSync,
+  now: number,
+  window: UsageWindow,
+  where: string,
+  parameters: (number | string)[],
+  firstTimestamp: number | null,
+): UsageSummary['timeline'] {
+  const range = timelineRange(now, window, firstTimestamp);
+  if (firstTimestamp === null) return { ...range, buckets: [] };
+
+  const bucketCount = Math.ceil((range.end - range.start) / range.bucketMs);
+  const rows = database
+    .prepare(
+      `SELECT min(?, CAST((calls.timestamp - ?) / ? AS INTEGER)) AS bucket,
+        ${TOTALS_COLUMNS}, ${FETCH_COLUMNS}
+     FROM tool_calls calls ${where}
+     GROUP BY bucket`,
+    )
+    .all(bucketCount - 1, range.start, range.bucketMs, ...parameters);
+  const rowsByBucket = new Map(rows.map((row) => [asNumber(row.bucket), row]));
+  const buckets = Array.from({ length: bucketCount }, (_, index) => {
+    const row = rowsByBucket.get(index);
+    return {
+      totals: {
+        calls: asNumber(row?.calls),
+        successes: asNumber(row?.successes),
+        failures: asNumber(row?.failures),
+        averageDurationMs: asNumberOrNull(row?.averageDurationMs),
+        maxDurationMs: asNumberOrNull(row?.maxDurationMs),
+        averageResponseBytes: asNumberOrNull(row?.averageResponseBytes),
+        totalResponseBytes: asNumber(row?.totalResponseBytes),
+      },
+      fetches: readFetchMetrics(row),
+    };
+  });
+  return { ...range, buckets };
+}
+
 function readSummary(
   database: DatabaseSync,
   now: number,
   filters: ReturnType<typeof normalizeFilters>,
 ): UsageSummary {
   const settings = readSettings(database);
-  if (!hasUsageSchema(database)) return emptySummary(filters, settings);
+  if (!hasUsageSchema(database)) return emptySummary(filters, now, settings);
   const { where, parameters } = buildCallFilter(now, filters);
   const sourceWhere = filters.selector
     ? `${where} AND sources.selector = ?`
@@ -529,13 +639,7 @@ function readSummary(
     : parameters;
   const totalsRow = database
     .prepare(
-      `SELECT count(*) AS calls,
-          sum(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successes,
-          sum(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failures,
-          avg(duration_ms) AS averageDurationMs,
-          max(duration_ms) AS maxDurationMs,
-          avg(response_bytes) AS averageResponseBytes,
-          sum(response_bytes) AS totalResponseBytes
+      `SELECT ${TOTALS_COLUMNS}, min(timestamp) AS firstTimestamp
        FROM tool_calls calls ${where}`,
     )
     .get(...parameters);
@@ -603,14 +707,7 @@ function readSummary(
     .all(...parameters);
   const fetchSummary = database
     .prepare(
-      `SELECT count(*) AS calls,
-          sum(CASE WHEN fetch_found = 1 THEN 1 ELSE 0 END) AS found,
-          sum(CASE WHEN fetch_found = 0 THEN 1 ELSE 0 END) AS missing,
-          sum(COALESCE(fetch_section_count, 0)) AS returnedSections,
-          sum(COALESCE(fetch_reference_count, 0)) AS referenceCount,
-          sum(CASE WHEN fetch_truncated = 1 THEN 1 ELSE 0 END) AS truncated,
-          sum(CASE WHEN fetch_has_cursor = 1 THEN 1 ELSE 0 END) AS continuations
-       FROM tool_calls calls ${where} AND calls.tool = 'fetch_docs'`,
+      `SELECT ${FETCH_COLUMNS} FROM tool_calls calls ${where} AND calls.tool = 'fetch_docs'`,
     )
     .get(...parameters);
   const queryLengthRows = database
@@ -663,6 +760,14 @@ function readSummary(
   return {
     settings,
     filters,
+    timeline: readTimeline(
+      database,
+      now,
+      filters.window,
+      where,
+      parameters,
+      asNumberOrNull(totalsRow?.firstTimestamp),
+    ),
     totals: {
       calls: callCount,
       successes: asNumber(totalsRow?.successes),
@@ -686,15 +791,7 @@ function readSummary(
     })),
     topDocuments: mergeDocumentRows(searchHitRows, fetchRows),
     topSections: mergeSectionRows(sectionRows, fetchSectionRows),
-    fetches: {
-      calls: asNumber(fetchSummary?.calls),
-      found: asNumber(fetchSummary?.found),
-      missing: asNumber(fetchSummary?.missing),
-      returnedSections: asNumber(fetchSummary?.returnedSections),
-      references: asNumber(fetchSummary?.referenceCount),
-      truncated: asNumber(fetchSummary?.truncated),
-      continuations: asNumber(fetchSummary?.continuations),
-    },
+    fetches: readFetchMetrics(fetchSummary),
     queryLengths: queryLengthRows.map((row) => ({
       characters: asNumber(row.characters),
       calls: asNumber(row.calls),
@@ -859,13 +956,8 @@ function buildCallFilter(
 ) {
   const conditions: string[] = [];
   const parameters: (number | string)[] = [];
-  const windowMs: Partial<Record<UsageWindow, number>> = {
-    '24h': DAY_MS,
-    '7d': 7 * DAY_MS,
-    '30d': 30 * DAY_MS,
-  };
-  const duration = windowMs[filters.window];
-  if (duration !== undefined) {
+  const duration = WINDOW_MS[filters.window];
+  if (duration > 0) {
     conditions.push('calls.timestamp >= ?');
     parameters.push(now - duration);
   }
@@ -899,11 +991,13 @@ function normalizeFilters(filters: UsageFilters) {
 
 function emptySummary(
   filters: ReturnType<typeof normalizeFilters>,
+  now: number,
   settings: UsageSettings = { ...DEFAULT_USAGE_SETTINGS },
 ): UsageSummary {
   return {
     settings,
     filters,
+    timeline: { ...timelineRange(now, filters.window, null), buckets: [] },
     totals: {
       calls: 0,
       successes: 0,
@@ -956,7 +1050,7 @@ function initializeSchema(database: DatabaseSync): void {
       );
       INSERT OR IGNORE INTO usage_settings (
         id, enabled, query_mode, retention_days, fingerprint_key, updated_at
-      ) VALUES (1, 0, 'counts', NULL, '${randomUUID()}${randomUUID()}', 0);
+      ) VALUES (1, ${DEFAULT_USAGE_SETTINGS.enabled ? 1 : 0}, '${DEFAULT_QUERY_MODE}', NULL, '${randomUUID()}${randomUUID()}', 0);
       CREATE TABLE IF NOT EXISTS tool_calls (
         call_id TEXT PRIMARY KEY,
         timestamp INTEGER NOT NULL,

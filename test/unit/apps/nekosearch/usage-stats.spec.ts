@@ -15,10 +15,10 @@ describe('UsageStatsStore', () => {
     rmSync(directory, { recursive: true, force: true });
   });
 
-  it('defaults to disabled and creates no database until settings are saved', () => {
+  it('records calls by default and allows collection to be turned off', () => {
     const store = new UsageStatsStore(directory);
     expect(store.getSettings()).toEqual({
-      enabled: false,
+      enabled: true,
       queryMode: 'counts',
     });
 
@@ -26,7 +26,76 @@ describe('UsageStatsStore', () => {
       structuredContent: { sources: [] },
     }));
 
-    expect(() => statSync(join(directory, 'usage.sqlite'))).toThrow();
+    expect(statSync(join(directory, 'usage.sqlite')).mode & 0o777).toBe(0o600);
+    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(1);
+
+    store.updateSettings({ enabled: false, queryMode: 'counts' });
+    store.record('list_docs', {}, () => ({
+      structuredContent: { sources: [] },
+    }));
+    expect(store.getSummary({ window: 'all' }).totals.calls).toBe(1);
+  });
+
+  it('charts the full filtered period independently of recent-call pagination', () => {
+    const hour = 60 * 60 * 1000;
+    const end = 48 * hour;
+    let now = end - 25 * hour;
+    const store = new UsageStatsStore(directory, () => now);
+    store.updateSettings({ enabled: true, queryMode: 'counts' });
+
+    const recordFetch = (selector: string) => {
+      store.record('fetch_docs', { selector, documentId: 'guide' }, () => ({
+        structuredContent: {
+          found: true,
+          sections: [{}],
+          references: [],
+        },
+      }));
+    };
+
+    recordFetch('nestjs@12');
+    now += hour;
+    recordFetch('nestjs@12');
+    now += hour / 2;
+    recordFetch('nestjs@12');
+    now += hour / 2;
+    recordFetch('nestjs@11');
+    now = end;
+    recordFetch('nestjs@12');
+    store.record('list_docs', {}, () => ({
+      structuredContent: { sources: [] },
+    }));
+
+    const report = store.getSummary({
+      window: '24h',
+      selector: 'nestjs@12',
+      tool: 'fetch_docs',
+      limit: 1,
+    });
+
+    expect(report.recentCalls).toHaveLength(1);
+    expect(report.timeline).toMatchObject({
+      start: end - 24 * hour,
+      end,
+      bucketMs: hour,
+    });
+    const { buckets } = report.timeline;
+    expect(buckets).toHaveLength(24);
+    expect(buckets[0]).toMatchObject({
+      totals: { calls: 2, averageDurationMs: 0 },
+      fetches: { calls: 2, found: 2, returnedSections: 2 },
+    });
+    expect(buckets[1]).toMatchObject({
+      totals: { calls: 0, averageDurationMs: null },
+      fetches: { calls: 0 },
+    });
+    expect(buckets[23]?.totals.calls).toBe(1);
+    expect(buckets.reduce((sum, bucket) => sum + bucket.totals.calls, 0)).toBe(
+      report.totals.calls,
+    );
+    expect(store.getSummary({ window: 'all' }).timeline.start).toBe(
+      end - 25 * hour,
+    );
   });
 
   it('records multi-source search hits, failures, fetch metadata, size and query privacy', async () => {
