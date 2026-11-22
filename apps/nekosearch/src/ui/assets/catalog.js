@@ -29,19 +29,6 @@ export function createCatalogPage(main, dashboard) {
     titleLink.href = detailsPath;
     titleLink.setAttribute('aria-label', `View details for ${entry.selector}`);
     titleLink.querySelector('strong').textContent = entry.selector;
-    row.querySelector('.snapshot-status').textContent =
-      entry.status === 'bundled'
-        ? 'Bundled'
-        : ({ tracked: 'Tracked', pinned: 'Pinned' }[entry.tracking] ??
-          'Imported');
-    row.querySelector('.snapshot-detail span').textContent =
-      `${entry.documentCount} ${entry.documentCount === 1 ? 'document' : 'documents'}`;
-    const revision = row.querySelector('code');
-    revision.textContent =
-      entry.revision.length > 13
-        ? `${entry.revision.slice(0, 10)}…`
-        : entry.revision;
-    revision.title = entry.revision;
 
     const actions = row.querySelector('.snapshot-actions');
     const details = document.createElement('a');

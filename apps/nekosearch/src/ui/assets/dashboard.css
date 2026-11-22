@@ -181,44 +181,15 @@ h2 {
 .snapshot-main {
   min-width: 0;
 }
-.snapshot-heading,
-.snapshot-detail {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.snapshot-heading strong {
-  overflow-wrap: anywhere;
-  font-size: 1rem;
-}
 .snapshot-title-link {
+  overflow-wrap: anywhere;
   color: inherit;
   text-decoration: none;
   text-underline-offset: 0.18em;
+  font-size: 1rem;
 }
 .snapshot-title-link:hover strong {
   text-decoration: underline;
-}
-.snapshot-status {
-  background: var(--surface-raised);
-  color: var(--muted);
-  padding: 0.18rem 0.58rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 650;
-}
-.snapshot-detail {
-  font-size: 0.8rem;
-  color: var(--muted);
-  margin-top: 0.4rem;
-}
-.snapshot-detail code {
-  overflow-wrap: anywhere;
-}
-.snapshot-detail code::before {
-  content: '·';
-  margin-right: 0.5rem;
 }
 .empty {
   padding: 1.2rem 1.5rem;
