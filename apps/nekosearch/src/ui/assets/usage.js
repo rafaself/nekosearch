@@ -6,6 +6,8 @@ const pageSize = 25;
 export function createUsagePage(main, dashboard) {
   const settingsForm = main.querySelector('#usage-settings');
   const filterForm = main.querySelector('#usage-filters');
+  const reportInfoButton = main.querySelector('#usage-report-info');
+  const reportHint = main.querySelector('#usage-report-hint');
   const notice = main.querySelector('#usage-notice');
   const selectorFilter = main.querySelector('#usage-selector');
   const previousButton = main.querySelector('#usage-previous');
@@ -13,7 +15,27 @@ export function createUsagePage(main, dashboard) {
   let offset = 0;
   let report;
   let loading = false;
+  let reportHintOpen = false;
 
+  reportInfoButton.addEventListener('click', () => {
+    setReportHintOpen(!reportHintOpen);
+  });
+  document.addEventListener('click', (event) => {
+    if (
+      !reportHintOpen ||
+      !(event.target instanceof Node) ||
+      reportInfoButton.contains(event.target) ||
+      reportHint.contains(event.target)
+    )
+      return;
+    setReportHintOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !reportHintOpen) return;
+    event.preventDefault();
+    setReportHintOpen(false);
+    reportInfoButton.focus();
+  });
   settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     void saveSettings();
@@ -45,7 +67,18 @@ export function createUsagePage(main, dashboard) {
     });
   });
 
-  return { onShow: () => void loadReport() };
+  return {
+    onShow: () => {
+      setReportHintOpen(false);
+      void loadReport();
+    },
+  };
+
+  function setReportHintOpen(isOpen) {
+    reportHintOpen = isOpen;
+    reportHint.hidden = !isOpen;
+    reportInfoButton.setAttribute('aria-expanded', String(isOpen));
+  }
 
   async function loadReport() {
     if (loading) return;
