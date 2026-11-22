@@ -33,24 +33,38 @@
             Local request statistics for NekoSearch MCP tools.
           </p>
         </div>
-        <button id="usage-refresh" class="button secondary" type="button">
-          Refresh
-        </button>
+        <div class="page-header-actions">
+          <button
+            id="usage-settings-open"
+            class="button secondary"
+            type="button"
+          >
+            Settings
+          </button>
+          <button id="usage-refresh" class="button secondary" type="button">
+            Refresh
+          </button>
+        </div>
       </div>
       <p id="usage-notice" class="notice" role="status" hidden></p>
 
-      <section class="usage-section" aria-labelledby="usage-settings-title">
-        <h2 id="usage-settings-title">Collection settings</h2>
-        <p class="muted usage-intro">
-          Statistics stay in the local NekoSearch data directory until you clear
-          them or reset that directory. They are not sent to NekoSearch or any
-          third party. Collection starts only after you enable it here.
-        </p>
-        <form id="usage-settings" class="usage-settings">
-          <label class="toggle-label" for="usage-enabled">
-            <input id="usage-enabled" name="enabled" type="checkbox" />
-            <span>Record MCP tool calls</span>
-          </label>
+      <template id="usage-settings-template">
+        <form id="usage-settings-form" class="usage-settings">
+          <div class="usage-toggle-setting">
+            <label class="toggle-label" for="usage-enabled">
+              <input
+                id="usage-enabled"
+                name="enabled"
+                type="checkbox"
+                autofocus
+              />
+              <span>Record MCP tool calls</span>
+            </label>
+            <p class="muted usage-setting-description">
+              Records local MCP call metrics; exact search text is not stored by
+              default.
+            </p>
+          </div>
           <div class="usage-setting-field">
             <label for="usage-query-mode">Search query detail</label>
             <select id="usage-query-mode" name="queryMode">
@@ -66,16 +80,21 @@
               encrypted.
             </p>
           </div>
-          <div class="usage-settings-actions">
-            <button class="button secondary" type="submit">
-              Save settings
-            </button>
+          <p id="usage-settings-status" class="notice" role="status" hidden></p>
+          <section
+            class="usage-settings-data"
+            aria-labelledby="usage-settings-data-title"
+          >
+            <div>
+              <h3 id="usage-settings-data-title">Usage data</h3>
+              <p class="muted">Clear locally recorded usage statistics.</p>
+            </div>
             <button id="usage-clear" class="button secondary" type="button">
               Clear usage data
             </button>
-          </div>
+          </section>
         </form>
-      </section>
+      </template>
 
       <section class="usage-section" aria-labelledby="usage-report-title">
         <div class="usage-section-heading">
@@ -122,15 +141,28 @@
             </p>
           </div>
           <form id="usage-filters" class="usage-filters">
-            <label>
-              <span>Period</span>
-              <select name="window">
-                <option value="24h">Last 24 hours</option>
-                <option value="7d" selected>Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="all">All retained data</option>
-              </select>
-            </label>
+            <div class="usage-periods" role="group" aria-label="Period">
+              <label
+                ><input type="radio" name="window" value="24h" /><span
+                  >24 hours</span
+                ></label
+              >
+              <label
+                ><input type="radio" name="window" value="7d" checked /><span
+                  >7 days</span
+                ></label
+              >
+              <label
+                ><input type="radio" name="window" value="30d" /><span
+                  >30 days</span
+                ></label
+              >
+              <label
+                ><input type="radio" name="window" value="all" /><span
+                  >All time</span
+                ></label
+              >
+            </div>
             <label>
               <span>Tool</span>
               <select name="tool">
@@ -149,18 +181,16 @@
           </form>
         </div>
 
+        <p id="usage-date-range" class="usage-date-range"></p>
         <dl
           id="usage-totals"
-          class="usage-metrics usage-metric-cards"
+          class="usage-metric-cards"
           aria-live="polite"
         ></dl>
 
         <section class="usage-fetches" aria-labelledby="usage-fetches-title">
           <h3 id="usage-fetches-title">Fetch behavior</h3>
-          <dl
-            id="usage-fetch-metrics"
-            class="usage-metrics usage-metric-cards"
-          ></dl>
+          <dl id="usage-fetch-metrics" class="usage-metric-cards"></dl>
         </section>
 
         <div class="usage-breakdowns">

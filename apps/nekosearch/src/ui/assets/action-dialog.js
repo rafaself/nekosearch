@@ -1,5 +1,58 @@
 let nextDialogId = 0;
 
+export function showAppDialog({
+  title,
+  description,
+  content,
+  actions,
+  formMethod,
+  className = '',
+}) {
+  const dialog = document.createElement('dialog');
+  dialog.className = ['app-dialog', className].filter(Boolean).join(' ');
+
+  const panel = document.createElement(formMethod ? 'form' : 'div');
+  panel.className = 'app-dialog__panel';
+  if (formMethod) panel.method = formMethod;
+
+  const titleId = `app-dialog-title-${++nextDialogId}`;
+  dialog.setAttribute('aria-labelledby', titleId);
+
+  const heading = document.createElement('h2');
+  heading.id = titleId;
+  heading.textContent = title;
+  panel.append(heading);
+
+  const body = document.createElement('div');
+  body.className = 'app-dialog__body';
+  if (description) {
+    const descriptionId = `app-dialog-description-${nextDialogId}`;
+    const descriptionElement = document.createElement('p');
+    descriptionElement.id = descriptionId;
+    descriptionElement.className = 'app-dialog__message';
+    descriptionElement.textContent = description;
+    body.append(descriptionElement);
+    dialog.setAttribute('aria-describedby', descriptionId);
+  }
+  if (content) body.append(content);
+  panel.append(body);
+
+  if (actions) {
+    actions.classList.add('app-dialog__actions');
+    panel.append(actions);
+  }
+
+  dialog.append(panel);
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close('cancel');
+  });
+
+  document.body.append(dialog);
+  dialog.showModal();
+  return dialog;
+}
+
 export function showActionDialog({
   title,
   message,
@@ -8,29 +61,7 @@ export function showActionDialog({
   cancelLabel = 'Cancel',
   onAction,
 }) {
-  const dialog = document.createElement('dialog');
-  dialog.className = 'app-dialog';
-
-  const form = document.createElement('form');
-  form.method = 'dialog';
-  form.className = 'app-dialog__form';
-
-  const titleId = `app-dialog-title-${++nextDialogId}`;
-  const messageId = `app-dialog-message-${nextDialogId}`;
-  dialog.setAttribute('aria-labelledby', titleId);
-  dialog.setAttribute('aria-describedby', messageId);
-
-  const heading = document.createElement('h2');
-  heading.id = titleId;
-  heading.textContent = title;
-
-  const description = document.createElement('p');
-  description.id = messageId;
-  description.className = 'app-dialog__message';
-  description.textContent = message;
-
   const actions = document.createElement('div');
-  actions.className = 'app-dialog__actions';
 
   const cancelButton = document.createElement('button');
   cancelButton.type = 'submit';
@@ -46,23 +77,18 @@ export function showActionDialog({
   actionButton.textContent = actionLabel;
 
   actions.append(cancelButton, actionButton);
-  form.append(heading, description, actions);
-  dialog.append(form);
-
+  const dialog = showAppDialog({
+    title,
+    description: message,
+    actions,
+    formMethod: 'dialog',
+  });
   dialog.addEventListener(
     'close',
     () => {
-      const confirmed = dialog.returnValue === 'confirm';
-      dialog.remove();
-      if (confirmed) onAction();
+      if (dialog.returnValue === 'confirm') onAction();
     },
     { once: true },
   );
-  dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close('cancel');
-  });
-
-  document.body.append(dialog);
-  dialog.showModal();
   return dialog;
 }

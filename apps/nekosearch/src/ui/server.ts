@@ -38,6 +38,7 @@ const ASSETS = [
     'snapshot-actions.js',
     'snapshot-details.js',
     'usage.js',
+    'usage-metrics.js',
   ].map(
     (file) => [`/${file}`, file, 'text/javascript; charset=utf-8'] as const,
   ),

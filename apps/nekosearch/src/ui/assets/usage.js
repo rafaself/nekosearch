@@ -1,10 +1,12 @@
-import { showActionDialog } from './action-dialog.js';
+import { showActionDialog, showAppDialog } from './action-dialog.js';
+import { renderMetricCards } from './usage-metrics.js';
 
 const numberFormat = new Intl.NumberFormat();
 const pageSize = 25;
 
 export function createUsagePage(main, dashboard) {
-  const settingsForm = main.querySelector('#usage-settings');
+  const settingsTemplate = main.querySelector('#usage-settings-template');
+  const settingsOpenButton = main.querySelector('#usage-settings-open');
   const filterForm = main.querySelector('#usage-filters');
   const reportInfoButton = main.querySelector('#usage-report-info');
   const reportHint = main.querySelector('#usage-report-hint');
@@ -15,7 +17,9 @@ export function createUsagePage(main, dashboard) {
   let offset = 0;
   let report;
   let loading = false;
+  let reloadRequested = false;
   let reportHintOpen = false;
+  let activeSettingsDialog;
 
   reportInfoButton.addEventListener('click', () => {
     setReportHintOpen(!reportHintOpen);
@@ -36,9 +40,8 @@ export function createUsagePage(main, dashboard) {
     setReportHintOpen(false);
     reportInfoButton.focus();
   });
-  settingsForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void saveSettings();
+  settingsOpenButton.addEventListener('click', () => {
+    void openSettings();
   });
   filterForm.addEventListener('change', () => {
     offset = 0;
@@ -57,16 +60,6 @@ export function createUsagePage(main, dashboard) {
       void loadReport();
     }
   });
-  main.querySelector('#usage-clear').addEventListener('click', () => {
-    showActionDialog({
-      title: 'Clear usage statistics?',
-      message:
-        'This permanently clears all locally retained usage statistics. This cannot be undone.',
-      actionLabel: 'Clear statistics',
-      onAction: () => void clearUsage(),
-    });
-  });
-
   return {
     onShow: () => {
       setReportHintOpen(false);
@@ -81,7 +74,10 @@ export function createUsagePage(main, dashboard) {
   }
 
   async function loadReport() {
-    if (loading) return;
+    if (loading) {
+      reloadRequested = true;
+      return;
+    }
     loading = true;
     setNotice('Loading local usage statistics…');
     try {
@@ -89,53 +85,129 @@ export function createUsagePage(main, dashboard) {
         dashboard.readUsageSettings(),
         dashboard.readUsage({ ...readFilters(), limit: pageSize, offset }),
       ]);
-      renderSettings(settings);
+      if (reloadRequested) return;
       renderReport(result);
       setNotice(
-        settings.enabled
-          ? result.totals.calls
-            ? ''
-            : 'No calls have been recorded in this period.'
-          : 'Collection is off. Enable it above to record future MCP calls. Existing statistics remain available.',
+        settings.enabled && !result.totals.calls
+          ? 'No calls have been recorded in this period.'
+          : '',
       );
     } catch (error) {
       setNotice(error.message, true);
     } finally {
       loading = false;
+      if (reloadRequested) {
+        reloadRequested = false;
+        void loadReport();
+      }
     }
   }
 
-  async function saveSettings() {
-    setButtonsDisabled(true);
+  async function openSettings() {
+    if (activeSettingsDialog?.open) return;
+
+    const form = settingsTemplate.content
+      .querySelector('#usage-settings-form')
+      .cloneNode(true);
+    const actions = document.createElement('div');
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'button quiet';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.autofocus = true;
+
+    const saveButton = document.createElement('button');
+    saveButton.type = 'submit';
+    saveButton.className = 'button prominent';
+    saveButton.textContent = 'Save';
+    saveButton.setAttribute('form', form.id);
+    actions.append(cancelButton, saveButton);
+
+    const dialog = showAppDialog({
+      title: 'Usage settings',
+      content: form,
+      actions,
+      className: 'app-dialog--wide',
+    });
+    activeSettingsDialog = dialog;
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void saveSettings(form, saveButton, dialog);
+    });
+    form.querySelector('#usage-clear').addEventListener('click', () => {
+      confirmClearUsage(form, saveButton);
+    });
+    cancelButton.addEventListener('click', () => dialog.close('cancel'));
+    dialog.addEventListener(
+      'close',
+      () => {
+        if (activeSettingsDialog !== dialog) return;
+        activeSettingsDialog = undefined;
+      },
+      { once: true },
+    );
+
+    setSettingsControlsDisabled(form, saveButton, true);
+    setSettingsStatus(form, 'Loading usage settings…');
+    let settingsLoaded = false;
     try {
-      const form = new FormData(settingsForm);
+      const settings = await dashboard.readUsageSettings();
+      if (!form.isConnected) return;
+      renderSettings(form, settings);
+      setSettingsStatus(form, '');
+      settingsLoaded = true;
+    } catch (error) {
+      if (form.isConnected) setSettingsStatus(form, error.message, true);
+    } finally {
+      setSettingsControlsDisabled(form, saveButton, false);
+      if (!settingsLoaded) saveButton.disabled = true;
+    }
+  }
+
+  function confirmClearUsage(form, saveButton) {
+    showActionDialog({
+      title: 'Clear usage statistics?',
+      message:
+        'This permanently clears all locally retained usage statistics. This cannot be undone.',
+      actionLabel: 'Clear statistics',
+      onAction: () => void clearUsage(form, saveButton),
+    });
+  }
+
+  async function saveSettings(formElement, saveButton, dialog) {
+    setSettingsStatus(formElement, '');
+    try {
+      const form = new FormData(formElement);
+      setSettingsControlsDisabled(formElement, saveButton, true);
       const settings = await dashboard.updateUsageSettings({
         enabled: form.get('enabled') === 'on',
         queryMode: form.get('queryMode'),
       });
-      renderSettings(settings);
-      setNotice('Usage collection settings saved.');
+      renderSettings(formElement, settings);
+      dialog.close('saved');
       await loadReport();
     } catch (error) {
-      setNotice(error.message, true);
+      setSettingsStatus(formElement, error.message, true);
     } finally {
-      setButtonsDisabled(false);
+      setSettingsControlsDisabled(formElement, saveButton, false);
     }
   }
 
-  async function clearUsage() {
-    setButtonsDisabled(true);
+  async function clearUsage(form, saveButton) {
+    setSettingsControlsDisabled(form, saveButton, true);
+    setSettingsStatus(form, '');
     try {
       const result = await dashboard.clearUsage();
       offset = 0;
-      setNotice(
+      await loadReport();
+      setSettingsStatus(
+        form,
         `Cleared ${numberFormat.format(result.clearedCalls)} recorded calls.`,
       );
-      await loadReport();
     } catch (error) {
-      setNotice(error.message, true);
+      setSettingsStatus(form, error.message, true);
     } finally {
-      setButtonsDisabled(false);
+      setSettingsControlsDisabled(form, saveButton, false);
     }
   }
 
@@ -148,16 +220,74 @@ export function createUsagePage(main, dashboard) {
     };
   }
 
-  function renderSettings(settings) {
-    main.querySelector('#usage-enabled').checked = settings.enabled;
-    main.querySelector('#usage-query-mode').value = settings.queryMode;
+  function renderSettings(form, settings) {
+    form.querySelector('#usage-enabled').checked = settings.enabled;
+    form.querySelector('#usage-query-mode').value = settings.queryMode;
   }
 
   function renderReport(data) {
     report = data;
     renderSourceFilter(data.sources.map(({ selector }) => selector));
-    renderTotals(data.totals);
-    renderFetchMetrics(data.fetches);
+    const range = new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      ...(data.filters.window === '24h' ? { timeStyle: 'short' } : {}),
+    });
+    main.querySelector('#usage-date-range').textContent =
+      data.filters.window === 'all' && !data.totals.calls
+        ? ''
+        : range.formatRange(data.timeline.start, data.timeline.end);
+    renderMetricCards(
+      main.querySelector('#usage-totals'),
+      [
+        ['calls', 'Calls'],
+        ['successes', 'Succeeded'],
+        ['failures', 'Failed'],
+        [
+          'averageDurationMs',
+          'Average latency',
+          formatDuration,
+          (value) => `${numberFormat.format(value)} ms`,
+          0.1,
+        ],
+        [
+          'maxDurationMs',
+          'Slowest call',
+          formatDuration,
+          (value) => `${numberFormat.format(value)} ms`,
+          0.1,
+        ],
+        [
+          'averageResponseBytes',
+          'Average response',
+          formatBytes,
+          formatChartBytes,
+        ],
+        [
+          'totalResponseBytes',
+          'Total response data',
+          formatBytes,
+          formatChartBytes,
+        ],
+      ],
+      'totals',
+      data.totals,
+      data.timeline,
+    );
+    renderMetricCards(
+      main.querySelector('#usage-fetch-metrics'),
+      [
+        ['calls', 'Fetch calls'],
+        ['found', 'Found'],
+        ['missing', 'Not found'],
+        ['returnedSections', 'Sections returned'],
+        ['references', 'References returned'],
+        ['truncated', 'Truncated responses'],
+        ['continuations', 'Continuation requests'],
+      ],
+      'fetches',
+      data.fetches,
+      data.timeline,
+    );
     renderTable('#usage-tools', data.tools, (row) => [
       row.tool,
       numberFormat.format(row.calls),
@@ -191,56 +321,20 @@ export function createUsagePage(main, dashboard) {
     const current = selectorFilter.value;
     const fragment = document.createDocumentFragment();
     fragment.append(new Option('All sources', ''));
-    for (const selector of selectors)
+    const available = current
+      ? [
+          ...new Set([
+            ...Array.from(selectorFilter.options, ({ value }) => value).filter(
+              Boolean,
+            ),
+            ...selectors,
+          ]),
+        ].sort()
+      : selectors;
+    for (const selector of available)
       fragment.append(new Option(selector, selector));
     selectorFilter.replaceChildren(fragment);
-    if (selectors.includes(current)) selectorFilter.value = current;
-  }
-
-  function renderTotals(totals) {
-    const items = [
-      ['Calls', numberFormat.format(totals.calls)],
-      ['Succeeded', numberFormat.format(totals.successes)],
-      ['Failed', numberFormat.format(totals.failures)],
-      ['Average latency', formatDuration(totals.averageDurationMs)],
-      ['Slowest call', formatDuration(totals.maxDurationMs)],
-      ['Average response', formatBytes(totals.averageResponseBytes)],
-      ['Total response data', formatBytes(totals.totalResponseBytes)],
-    ];
-    const fragment = document.createDocumentFragment();
-    for (const [label, value] of items) {
-      const wrapper = document.createElement('div');
-      const term = document.createElement('dt');
-      const description = document.createElement('dd');
-      term.textContent = label;
-      description.textContent = value;
-      wrapper.append(term, description);
-      fragment.append(wrapper);
-    }
-    main.querySelector('#usage-totals').replaceChildren(fragment);
-  }
-
-  function renderFetchMetrics(fetches) {
-    const items = [
-      ['Fetch calls', fetches.calls],
-      ['Found', fetches.found],
-      ['Not found', fetches.missing],
-      ['Sections returned', fetches.returnedSections],
-      ['References returned', fetches.references],
-      ['Truncated responses', fetches.truncated],
-      ['Continuation requests', fetches.continuations],
-    ];
-    const fragment = document.createDocumentFragment();
-    for (const [label, value] of items) {
-      const wrapper = document.createElement('div');
-      const term = document.createElement('dt');
-      const description = document.createElement('dd');
-      term.textContent = label;
-      description.textContent = numberFormat.format(value);
-      wrapper.append(term, description);
-      fragment.append(wrapper);
-    }
-    main.querySelector('#usage-fetch-metrics').replaceChildren(fragment);
+    selectorFilter.value = current;
   }
 
   function renderQueryTable(data) {
@@ -358,10 +452,17 @@ export function createUsagePage(main, dashboard) {
     notice.dataset.kind = isError ? 'error' : 'info';
   }
 
-  function setButtonsDisabled(disabled) {
-    for (const button of settingsForm.querySelectorAll('button'))
-      button.disabled = disabled;
-    main.querySelector('#usage-clear').disabled = disabled;
+  function setSettingsStatus(form, message, isError = false) {
+    const status = form.querySelector('#usage-settings-status');
+    status.textContent = message;
+    status.hidden = !message;
+    status.dataset.kind = isError ? 'error' : 'info';
+  }
+
+  function setSettingsControlsDisabled(form, saveButton, disabled) {
+    for (const control of form.querySelectorAll('input, select, button'))
+      control.disabled = disabled;
+    saveButton.disabled = disabled;
   }
 }
 
@@ -381,4 +482,8 @@ function formatBytes(bytes) {
   return `${new Intl.NumberFormat(undefined, {
     maximumFractionDigits: unitIndex ? 1 : 0,
   }).format(value)} ${units[unitIndex]}`;
+}
+
+function formatChartBytes(bytes) {
+  return formatBytes(bytes).replace(' bytes', ' B');
 }

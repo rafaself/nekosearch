@@ -95,6 +95,12 @@ main.layout {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 h1 {
   font-size: clamp(1.8rem, 4.5vw, 2.75rem);
   line-height: 1.12;
@@ -252,10 +258,6 @@ h2 {
 .usage-page {
   max-width: 66rem;
 }
-.usage-intro {
-  max-width: 65ch;
-  margin-top: 0.45rem;
-}
 .usage-section + .usage-section {
   margin-top: 2.5rem;
 }
@@ -269,11 +271,19 @@ h2 {
   gap: 1.1rem 1.5rem;
   margin-top: 1.25rem;
 }
+.usage-toggle-setting {
+  display: grid;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
 .toggle-label {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  grid-column: 1 / -1;
+}
+.usage-setting-description {
+  margin: 0;
+  white-space: nowrap;
 }
 .toggle-label input {
   width: 1.15rem;
@@ -290,12 +300,28 @@ h2 {
 .usage-setting-field .muted {
   margin-top: 0.2rem;
 }
-.usage-settings-actions {
+.usage-settings-data {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.5rem;
   grid-column: 1 / -1;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.usage-settings-data h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.usage-settings-data .muted {
+  margin: 0.25rem 0 0;
+}
+.app-dialog .usage-settings {
+  margin-top: 0;
+}
+.usage-settings .notice {
+  margin: 0;
 }
 .usage-section-heading {
   display: flex;
@@ -349,7 +375,7 @@ h2 {
   flex-wrap: wrap;
   gap: 0.65rem;
 }
-.usage-filters label {
+.usage-filters > label {
   display: grid;
   gap: 0.3rem;
   min-width: 8.5rem;
@@ -358,39 +384,182 @@ h2 {
 .usage-filters select {
   min-height: 2.35rem;
 }
-.usage-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: 0.9rem 1.2rem;
-  margin: 1.5rem 0 2rem;
-  padding-block: 1rem;
-  border-block: 1px solid var(--line);
+.usage-periods {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: end;
+  gap: 0.125rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  background: var(--background);
 }
-.usage-metrics > div {
+.usage-periods label {
+  position: relative;
+  display: block;
   min-width: 0;
 }
-.usage-metrics dt {
+.usage-periods input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.usage-periods span {
+  display: block;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 2rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.usage-periods input:checked + span {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.usage-periods input:focus-visible + span {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.usage-date-range {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+.usage-date-range:empty {
+  display: none;
+}
+.usage-metric-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 2rem;
+}
+.usage-metric-cards > div {
+  --metric-card-padding: 1rem;
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 28%) minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  column-gap: 0.85rem;
+  min-width: 0;
+  min-height: 9.25rem;
+  padding: var(--metric-card-padding);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface);
+}
+.usage-metric-cards > :first-child:nth-last-child(odd) {
+  grid-column: 1 / -1;
+}
+.usage-metric-cards dt {
+  grid-area: 1 / 1;
+  align-self: end;
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.usage-metric-cards dd {
+  display: grid;
+  grid-area: 1 / 1 / -1 / -1;
+  grid-template-columns: subgrid;
+  grid-template-rows: subgrid;
+  min-width: 0;
+  margin: 0;
+}
+.usage-metric-value {
+  grid-area: 2 / 1;
+  align-self: start;
+  margin-top: 0.2rem;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.usage-chart,
+.usage-chart-empty {
+  grid-area: 1 / 2 / -1;
+  align-self: center;
+  min-width: 0;
+}
+.usage-chart-empty {
+  display: grid;
+  place-items: center;
+  position: relative;
+  align-self: stretch;
+  margin-block: calc(-1 * var(--metric-card-padding));
+  margin-inline-end: calc(-1 * var(--metric-card-padding));
   color: var(--muted);
   font-size: 0.75rem;
 }
-.usage-metrics dd {
-  margin: 0.3rem 0 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
+.usage-chart-empty svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-.usage-metric-cards {
-  gap: 0.75rem;
-  margin-block: 1rem 2rem;
-  padding: 0;
-  border: 0;
+.usage-chart-empty-fill {
+  fill: rgb(255 255 255 / 2%);
 }
-.usage-metric-cards > div {
-  padding: 0.95rem 1rem;
+.usage-chart-empty-line {
+  fill: none;
+  stroke: var(--line);
+  vector-effect: non-scaling-stroke;
+}
+.usage-chart-empty > span {
+  position: relative;
+  padding: 0.2rem 0.55rem;
   border: 1px solid var(--line);
-  border-radius: 0.85rem;
+  border-radius: 1rem;
   background: var(--surface);
-  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 18%);
+}
+.usage-chart {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.usage-chart-scale,
+.usage-chart-times {
+  display: flex;
+  justify-content: space-between;
+}
+.usage-chart-scale {
+  flex-direction: column;
+  align-items: flex-end;
+  margin-block: -0.4rem;
+}
+.usage-chart-times {
+  grid-column: 2;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+.usage-chart svg {
+  display: block;
+  width: 100%;
+  height: 5.25rem;
+  overflow: visible;
+  color: #b9d5f8;
+}
+.usage-chart-guide,
+.usage-chart-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.usage-chart-guide {
+  stroke: var(--line);
+  stroke-dasharray: 3 3;
+}
+.usage-chart-line {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .usage-breakdowns {
   display: grid;
@@ -515,15 +684,21 @@ select:disabled {
   color: var(--text);
   box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
 }
+.app-dialog--wide {
+  width: min(40rem, calc(100vw - 2rem));
+}
 .app-dialog::backdrop {
   background: rgb(0 0 0 / 72%);
   backdrop-filter: blur(3px);
 }
-.app-dialog__form {
+.app-dialog__panel {
   display: grid;
   gap: 1rem;
   margin: 0;
   padding: clamp(1.25rem, 4vw, 1.75rem);
+}
+.app-dialog__body {
+  min-width: 0;
 }
 .app-dialog__message {
   color: var(--muted);
@@ -603,6 +778,16 @@ select:disabled {
   color: var(--text);
 }
 
+@media (width > 52rem) {
+  .usage-metric-cards > :first-child:nth-last-child(odd) {
+    grid-template-columns: minmax(5.5rem, 14%) minmax(0, 1fr);
+  }
+}
+@media (max-width: 52rem) {
+  .usage-metric-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 42rem) {
   .add-options {
     grid-template-columns: minmax(0, 1fr);
@@ -634,16 +819,30 @@ select:disabled {
   .usage-settings {
     grid-template-columns: minmax(0, 1fr);
   }
+  .usage-setting-description {
+    white-space: normal;
+  }
   .usage-filters {
     width: 100%;
   }
-  .usage-filters label {
+  .usage-filters > label {
     min-width: min(100%, 9rem);
     flex: 1 1 9rem;
   }
   .usage-pagination {
     align-items: start;
     flex-direction: column;
+  }
+}
+@media (max-width: 26rem) {
+  .usage-metric-cards > div:has(.usage-chart) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    row-gap: 0.25rem;
+  }
+  .usage-chart {
+    grid-area: 3 / 1;
+    margin-top: 0.75rem;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
