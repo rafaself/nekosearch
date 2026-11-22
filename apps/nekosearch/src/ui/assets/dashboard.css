@@ -48,14 +48,15 @@ main.layout {
   position: sticky;
   inset-block-start: 1rem;
   z-index: 2;
-  width: fit-content;
-  max-width: calc(100% - 1.25rem);
+  width: min(100% - 3rem, 62rem);
   margin: 1rem auto 0;
 }
 .site-nav {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
   padding: 0.3rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -556,9 +557,12 @@ select:disabled {
   }
 }
 @media (max-width: 34rem) {
+  .site-header {
+    width: calc(100% - 2rem);
+  }
   .site-nav {
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .brand,
   .nav-link {
