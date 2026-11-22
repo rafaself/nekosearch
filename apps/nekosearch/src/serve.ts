@@ -14,6 +14,7 @@ import {
   LEXICAL_RETRIEVAL_TOP_K,
   SEMANTIC_RETRIEVAL_TOP_K,
 } from '@nestjs-docs/documentation-engine/retrieval/fusion/reciprocal-rank-fusion.js';
+import { extractSearchTerms } from '@nestjs-docs/documentation-engine/retrieval/search-input.js';
 import { fetchDocumentation } from './mcp/documentation-tool-handlers.js';
 import { PACKAGE_NAME, PACKAGE_VERSION } from './package-metadata.js';
 import {
@@ -35,7 +36,7 @@ import {
 } from './catalog.js';
 
 const serverInstructions =
-  'Call list_docs to discover the documentation selectors available in this session. Search one or more exact selectors with search_docs, then pass a result group selector and document ID to fetch_docs. Pass a result chunkId as fetch_docs sectionId when you want that section. Results are grouped by source. Cite the returned source URL and revision.';
+  'Call list_docs to discover the documentation selectors available in this session. Search one or more exact selectors with search_docs. Each hit includes a compact Markdown excerpt and a canonical section URL; use them to answer when they contain enough detail. For more context, pass the result group selector, documentId, and chunkId as sectionId to fetch_docs. Results are grouped by source. Cite the returned source URL and revision.';
 
 interface CatalogSearchRuntime {
   entry: DocumentationCatalogEntry;
@@ -176,7 +177,7 @@ export function registerSearchDocsTool(
   server.registerTool(
     'search_docs',
     {
-      description: `Searches only the 1 to ${MAX_SEARCH_SOURCES} exact selectors in sources. Get selectors from list_docs. Results are grouped by selector and preserve each snapshot's lexical or fused ranking; limit caps the total response at ${MAX_TOTAL_SEARCH_RESULTS} hits across all groups.`,
+      description: `Searches only the 1 to ${MAX_SEARCH_SOURCES} exact selectors in sources. Get selectors from list_docs. Each hit includes a compact Markdown excerpt and canonical section URL; use its documentId and chunkId with fetch_docs for the full section. Results are grouped by selector and preserve each snapshot's lexical or fused ranking; limit caps the total response at ${MAX_TOTAL_SEARCH_RESULTS} hits across all groups.`,
       inputSchema: catalogSearchDocsInputSchema,
       outputSchema: catalogSearchDocsOutputSchema,
       annotations: readOnlyAnnotations,
@@ -268,6 +269,7 @@ export async function searchCatalogDocumentationWithSemantic(
     const semanticResults = semanticRetriever.search(
       queryVector,
       SEMANTIC_RETRIEVAL_TOP_K,
+      extractSearchTerms(input.query),
     );
     return hybridSearchRanking(
       input.query,
@@ -357,22 +359,27 @@ function formatSearchGroups(
   }
   return groups
     .map(({ selector, revision, results }) => {
-      const header = `## ${selector}\nRevision: ${revision}`;
+      const header = `## ${selector} (revision: ${revision})`;
       if (results.length === 0)
         return `${header}\nNo matching documentation found.`;
       const formattedResults = results.map((hit, index) =>
         [
-          `### ${index + 1}. ${hit.title}`,
-          `Document ID: ${hit.documentId}`,
-          `Section ID: ${hit.chunkId}`,
-          `Source revision: ${hit.sourceRevision}`,
-          `Source: ${hit.canonicalUrl}`,
-          `Excerpt: ${hit.excerpt}`,
+          `### ${index + 1}. [${escapeMarkdownLinkLabel(hit.title)}](<${hit.canonicalUrl}>)`,
+          `Document ID: ${hit.documentId} · Section ID: ${hit.chunkId}`,
+          hit.excerpt,
         ].join('\n'),
       );
       return [header, ...formattedResults].join('\n\n');
     })
     .join('\n\n');
+}
+
+function escapeMarkdownLinkLabel(value: string): string {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('[', '\\[')
+    .replaceAll(']', '\\]')
+    .replace(/[\r\n]+/gu, ' ');
 }
 
 function resolveRequestedRuntimes(

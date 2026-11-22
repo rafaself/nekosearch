@@ -34,8 +34,10 @@ describe('SemanticRetriever', () => {
       QWEN3_DOCUMENTATION_EMBEDDING_SPACE_V1,
     );
 
-    expect(retriever.search(vector, 17)).toEqual([]);
-    expect(store.searchByEmbedding).toHaveBeenCalledWith(vector, 17);
+    expect(retriever.search(vector, 17, ['ExecutionContext'])).toEqual([]);
+    expect(store.searchByEmbedding).toHaveBeenCalledWith(vector, 17, [
+      'ExecutionContext',
+    ]);
   });
 
   it('rejects malformed or non-normalized query vectors', () => {

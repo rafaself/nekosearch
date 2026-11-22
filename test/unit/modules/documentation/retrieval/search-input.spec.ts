@@ -43,6 +43,22 @@ describe('DocumentationSearchService', () => {
     },
   );
 
+  it('returns readable Markdown context with a stable section URL', async () => {
+    service.indexCorpus(await loadSearchCorpus());
+
+    const hit = service.search('ExecutionContext')[0];
+
+    expect(hit?.canonicalUrl).toBe(
+      'https://docs.nestjs.com/guards#inspecting-request-context',
+    );
+    expect(hit?.excerpt).toContain('## Inspecting request context');
+    expect(hit?.excerpt).toContain(
+      '`ExecutionContext` to the guard, so it can inspect the active request',
+    );
+    expect(hit?.excerpt).toContain('```ts\n@Injectable()');
+    expect(hit?.excerpt).not.toContain('[ExecutionContext]');
+  });
+
   it('returns no matches for an empty query', () => {
     expect(service.search('')).toEqual([]);
     expect(service.search('   ')).toEqual([]);

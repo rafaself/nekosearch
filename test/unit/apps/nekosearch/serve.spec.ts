@@ -42,6 +42,14 @@ describe('searchCatalogDocumentation', () => {
         },
       ],
     });
+    expect(nestOnly.content[0]?.text).toContain(
+      '[nest-first](<https://docs.example/nest-first>)',
+    );
+    expect(nestOnly.content[0]?.text).toContain(
+      'Document ID: nest-first · Section ID: nest-first-section',
+    );
+    expect(nestOnly.content[0]?.text).toContain('Excerpt for nest-first');
+    expect(nestOnly.content[0]?.text).not.toContain('Source revision:');
   });
 
   it('validates every selector before searching any source', () => {
@@ -146,8 +154,24 @@ describe('searchCatalogDocumentation', () => {
       'How can request scoped dependencies be resolved?',
       50,
     );
-    expect(nestSemantic).toHaveBeenCalledWith(queryVector, 50);
-    expect(fastApiSemantic).toHaveBeenCalledWith(queryVector, 50);
+    expect(nestSemantic).toHaveBeenCalledWith(queryVector, 50, [
+      'How',
+      'can',
+      'request',
+      'scoped',
+      'dependencies',
+      'be',
+      'resolved',
+    ]);
+    expect(fastApiSemantic).toHaveBeenCalledWith(queryVector, 50, [
+      'How',
+      'can',
+      'request',
+      'scoped',
+      'dependencies',
+      'be',
+      'resolved',
+    ]);
     expect(nestSemantic.mock.calls[0]?.[0]).toBe(queryVector);
     expect(fastApiSemantic.mock.calls[0]?.[0]).toBe(queryVector);
     expect(oldNestLexical).not.toHaveBeenCalled();

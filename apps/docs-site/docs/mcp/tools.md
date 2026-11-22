@@ -83,7 +83,7 @@ Retrieval mode is controlled globally by `search.semantic.enabled` in `nekosearc
           "title": "MCP transports",
           "canonicalUrl": "https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#standard-input-and-output",
           "sourceRevision": "2025-11-25",
-          "excerpt": "## Standard input and output\n\nThe [stdio transport] is intended for a client that starts a server as a local process. The client writes protocol messages to the server's standard input, and … ",
+          "excerpt": "## Standard input and output\n\nThe stdio transport is intended for a client that starts a server as a local process. The client writes protocol messages to the server's standard input, and the server writes protocol messages to standard output. Standard output is reserved for protocol traffic; diagnostic logs belong on standard error. A stdio server should not start an unrelated network listener.",
           "score": 4.571562874598401
         }
       ]
@@ -104,7 +104,7 @@ Retrieval mode is controlled globally by `search.semantic.enabled` in `nekosearc
 | Group `results`                                   | Ranked hits allocated from this source within the total budget                   |
 | `totalResults`                                    | Number of returned hits across all groups                                        |
 
-Every hit contains `chunkId`, `documentId`, `title`, `canonicalUrl`, `sourceRevision`, `excerpt`, and numeric `score`. Treat identifiers as opaque. Excerpts can contain match markers and clipped text; fetch the section for its Markdown. Scores rank hits within an index and are not a cross-source confidence measure.
+Every hit contains `chunkId`, `documentId`, `title`, `canonicalUrl`, `sourceRevision`, `excerpt`, and numeric `score`. Treat identifiers as opaque. The excerpt is bounded plain Markdown selected around matching query terms when possible. A final `… [Excerpt truncated]` marks omitted section content. `canonicalUrl` links to the indexed section; pass `chunkId` as `sectionId` to `fetch_docs` for the full Markdown or a continuation cursor. Scores rank hits within an index and are not a cross-source confidence measure.
 
 For multiple sources, NekoSearch allocates hits round-robin by rank and requested source order until `limit` is exhausted. Some groups can be empty when the budget is small. An unknown selector fails the request; it never triggers an all-catalog fallback.
 

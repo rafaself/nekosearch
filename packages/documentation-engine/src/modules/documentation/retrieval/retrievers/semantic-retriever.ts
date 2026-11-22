@@ -10,6 +10,7 @@ export interface SemanticSearchStore {
   searchByEmbedding(
     queryVector: Float32Array,
     limit: number,
+    queryTerms?: readonly string[],
   ): DocumentationSearchResult[];
 }
 
@@ -43,6 +44,7 @@ export class SemanticRetriever {
   search(
     queryVector: Float32Array,
     limit = SEMANTIC_RETRIEVAL_TOP_K,
+    queryTerms: readonly string[] = [],
   ): DocumentationSearchResult[] {
     validateQueryVector(queryVector, this.embeddingSpace.embeddingDimensions);
     if (!Number.isSafeInteger(limit) || limit < 1) {
@@ -51,6 +53,7 @@ export class SemanticRetriever {
     return this.store.searchByEmbedding(
       queryVector,
       Math.min(limit, SEMANTIC_RETRIEVAL_TOP_K),
+      queryTerms,
     );
   }
 }

@@ -52,7 +52,9 @@ describe('SQLite semantic retrieval', () => {
         manifest.embeddings,
         QWEN3_DOCUMENTATION_EMBEDDING_SPACE_V1,
       );
-      const results = retriever.search(unitVector(0, 1), 2);
+      const results = retriever.search(unitVector(0, 1), 2, [
+        'ExecutionContext',
+      ]);
 
       expect(results.map(({ chunkId }) => chunkId)).toEqual([
         chunks[1]!.id,

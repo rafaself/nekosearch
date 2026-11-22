@@ -9,6 +9,7 @@ import type {
 import type { DocumentationSearchResult } from '../../application/contracts/documentation-reader.contract.js';
 import type { DocumentationLinkReference } from '../../domain/documentation.types.js';
 import { MAX_SEARCH_RESULT_LIMIT } from '../../retrieval/search.constants.js';
+import { createSearchExcerpt } from '../../retrieval/search-excerpt.js';
 import { validateRuntimeIndex } from './runtime-index.js';
 
 const EMBEDDING_DIMENSIONS = 1024;
@@ -71,7 +72,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
           heading_path AS headingPath,
           canonical_url AS canonicalUrl,
           source_revision AS sourceRevision,
-          snippet(documentation_search, 2, '[', ']', ' … ', 32) AS excerpt,
+          markdown,
           bm25(documentation_search, 8.0, 4.0, 1.0) AS rank
         FROM documentation_search
         WHERE documentation_search MATCH ?
@@ -89,7 +90,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
       );
 
     const scoredCandidates = candidates.map((row) => {
-      const result = toSearchResult(row);
+      const result = toSearchResult(row, queryTerms);
       const title = requireString(row.title, 'title');
       const headingPath = requireString(row.headingPath, 'heading path');
       return {
@@ -129,6 +130,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
   searchByEmbedding(
     queryVector: Float32Array,
     limit = MAX_SEARCH_RESULT_LIMIT,
+    queryTerms: readonly string[] = [],
   ): DocumentationSearchResult[] {
     if (!this.indexManifest.embeddings) {
       throw new Error(
@@ -172,7 +174,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
     const resultStatement = this.database.prepare(
       `SELECT chunk_id AS chunkId, document_id AS documentId, title,
           canonical_url AS canonicalUrl, source_revision AS sourceRevision,
-          substr(markdown, 1, 320) AS excerpt
+          markdown
        FROM documentation_search
        WHERE documentation_version = ? AND chunk_id = ?`,
     );
@@ -186,7 +188,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
           `Semantic result references missing documentation chunk ${candidate.chunkId}`,
         );
       }
-      return toSemanticSearchResult(row, candidate.score);
+      return toSemanticSearchResult(row, candidate.score, queryTerms);
     });
   }
 
@@ -274,6 +276,7 @@ export class SQLiteDocumentationStore implements DocumentationSearchStore {
 
 function toSearchResult(
   row: Record<string, unknown>,
+  queryTerms: readonly string[],
 ): DocumentationSearchResult {
   const {
     chunkId,
@@ -281,7 +284,7 @@ function toSearchResult(
     title,
     canonicalUrl,
     sourceRevision,
-    excerpt,
+    markdown,
     rank,
   } = row;
   if (
@@ -290,7 +293,7 @@ function toSearchResult(
     typeof title !== 'string' ||
     typeof canonicalUrl !== 'string' ||
     typeof sourceRevision !== 'string' ||
-    typeof excerpt !== 'string' ||
+    typeof markdown !== 'string' ||
     typeof rank !== 'number'
   ) {
     throw new Error('SQLite returned an invalid documentation search row');
@@ -301,7 +304,7 @@ function toSearchResult(
     title,
     canonicalUrl,
     sourceRevision,
-    excerpt,
+    excerpt: createSearchExcerpt(markdown, queryTerms),
     score: -rank,
   };
 }
@@ -427,8 +430,9 @@ function validateNormalizedQueryVector(vector: Float32Array): void {
 function toSemanticSearchResult(
   row: Record<string, unknown>,
   score: number,
+  queryTerms: readonly string[],
 ): DocumentationSearchResult {
-  const { chunkId, documentId, title, canonicalUrl, sourceRevision, excerpt } =
+  const { chunkId, documentId, title, canonicalUrl, sourceRevision, markdown } =
     row;
   if (
     typeof chunkId !== 'string' ||
@@ -436,7 +440,7 @@ function toSemanticSearchResult(
     typeof title !== 'string' ||
     typeof canonicalUrl !== 'string' ||
     typeof sourceRevision !== 'string' ||
-    typeof excerpt !== 'string' ||
+    typeof markdown !== 'string' ||
     !Number.isFinite(score)
   ) {
     throw new Error('SQLite returned an invalid semantic search result');
@@ -447,7 +451,7 @@ function toSemanticSearchResult(
     title,
     canonicalUrl,
     sourceRevision,
-    excerpt,
+    excerpt: createSearchExcerpt(markdown, queryTerms),
     score,
   };
 }
